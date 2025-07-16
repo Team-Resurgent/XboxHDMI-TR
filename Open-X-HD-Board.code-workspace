@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"stm32_hal.h": "c",
+			"string.h": "c",
+			"interrupt.h": "c",
+			"adv7511.h": "c",
+			"adv7511_i2c.h": "c",
+			"debug.h": "c"
+		}
+	}
+}

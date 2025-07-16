@@ -17,13 +17,17 @@ EqUiNoX
 HD+ Program Header Pin Out
 
 2 1 - 3V3       NRST
+
 4 3 - OSC OUT   TX
+
 6 5 - GND       RX
+
 8 7 - SWDIO     SWCLK
 
 To Do:
 
 Finalize stm32g0 support
+
 Enhance functionality (on-going)
 
 EqUiNoX

@@ -1,8 +1,7 @@
 // Copyright 2021, Ryan Wendland, XboxHDMI by Ryzee119
 // SPDX-License-Identifier: MIT
 
-#ifndef ADV7511_H_
-#define ADV7511_H_
+#pragma once
 
 #include <stdbool.h>
 #include "stm32f0xx_hal.h"
@@ -176,12 +175,10 @@ typedef struct
     uint8_t interrupt;
 } adv7511;
 
-uint8_t adv7511_power_up(I2C_HandleTypeDef *i2c, adv7511 *encoder);
-uint8_t adv7511_update_register(I2C_HandleTypeDef *i2c, uint8_t address, uint8_t mask, uint8_t new_value);
-uint8_t adv7511_read_register(I2C_HandleTypeDef *i2c, uint8_t address);
-uint8_t adv7511_write_register(I2C_HandleTypeDef *i2c, uint8_t address, uint8_t value);
-uint8_t adv7511_write_cec(I2C_HandleTypeDef *i2c, uint8_t address, uint8_t value);
+uint8_t adv7511_power_up(adv7511 *encoder);
+uint8_t adv7511_update_register(uint8_t address, uint8_t mask, uint8_t new_value);
+uint8_t adv7511_read_register(uint8_t address);
+uint8_t adv7511_write_register(uint8_t address, uint8_t value);
+uint8_t adv7511_write_cec(uint8_t address, uint8_t value);
 void adv7511_struct_init(adv7511 *encoder);
-uint8_t apply_csc(I2C_HandleTypeDef *i2c, uint8_t *coefficients);
-
-#endif /* ADV7511_H_ */
+uint8_t apply_csc(uint8_t *coefficients);

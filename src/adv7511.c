@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include "stm32f0xx_hal.h"
 #include "adv7511.h"
+#include "adv7511_i2c.h"
+
+#include "debug.h"
 
 void adv7511_struct_init(adv7511 *encoder)
 {
@@ -13,8 +16,10 @@ void adv7511_struct_init(adv7511 *encoder)
     encoder->monitor_sense = 0;
 }
 
-uint8_t adv7511_read_register(I2C_HandleTypeDef *i2c, uint8_t address)
+uint8_t adv7511_read_register(uint8_t address)
 {
+    I2C_HandleTypeDef *i2c = adv7511_i2c_instance();
+
     HAL_StatusTypeDef status;
     uint8_t register_value = 0;
 
@@ -28,14 +33,16 @@ uint8_t adv7511_read_register(I2C_HandleTypeDef *i2c, uint8_t address)
 
     if (status != HAL_OK)
     {
-        printf("Error with HAL_I2C_Mem_Read %u\r\n", status);
+        debug_log("Error with HAL_I2C_Mem_Read %u\r\n", status);
     }
 
     return register_value;
 }
 
-uint8_t adv7511_write_register(I2C_HandleTypeDef *i2c, uint8_t address, uint8_t value)
+uint8_t adv7511_write_register(uint8_t address, uint8_t value)
 {
+    I2C_HandleTypeDef *i2c = adv7511_i2c_instance();
+
     HAL_StatusTypeDef status;
     status = HAL_I2C_Mem_Write(i2c,
                                ADV7511_MAIN_I2C_ADDR,
@@ -46,15 +53,17 @@ uint8_t adv7511_write_register(I2C_HandleTypeDef *i2c, uint8_t address, uint8_t 
                                100); //Timeout (ms)
     if (status != HAL_OK)
     {
-        printf("Error with HAL_I2C_Mem_Write %u\r\n", status);
+        debug_log("Error with HAL_I2C_Mem_Write %u\r\n", status);
         return 1;
     }
 
     return 0;
 }
 
-uint8_t adv7511_write_cec(I2C_HandleTypeDef *i2c, uint8_t address, uint8_t value)
+uint8_t adv7511_write_cec(uint8_t address, uint8_t value)
 {
+    I2C_HandleTypeDef *i2c = adv7511_i2c_instance();
+
     HAL_StatusTypeDef status;
     status = HAL_I2C_Mem_Write(i2c,
                                ADV7511_CEC_I2C_ADDR_DEFAULT,
@@ -65,32 +74,31 @@ uint8_t adv7511_write_cec(I2C_HandleTypeDef *i2c, uint8_t address, uint8_t value
                                100); //Timeout (ms)
     if (status != HAL_OK)
     {
-        printf("Error with HAL_I2C_Mem_Write %u\r\n", status);
+        debug_log("Error with HAL_I2C_Mem_Write %u\r\n", status);
         return 1;
     }
 
     return 0;
 }
 
-uint8_t adv7511_update_register(I2C_HandleTypeDef *i2c, uint8_t address,
-                                uint8_t mask, uint8_t new_value)
+uint8_t adv7511_update_register(uint8_t address, uint8_t mask, uint8_t new_value)
 {
     uint8_t working_value, retval;
-    uint8_t register_value = adv7511_read_register(i2c, address);
+    uint8_t register_value = adv7511_read_register(address);
 
     working_value = register_value & ~mask;
     new_value &= mask;
     new_value |= working_value;
 
-    retval = adv7511_write_register(i2c, address, new_value);
+    retval = adv7511_write_register(address, new_value);
 
-    printf("Register 0x%02x : 0x%02x -> 0x%02x\r\n",
-           address, register_value, adv7511_read_register(i2c, address));
+    debug_log("Register 0x%02x : 0x%02x -> 0x%02x\r\n",
+           address, register_value, adv7511_read_register(address));
 
     return retval;
 }
 
-uint8_t adv7511_power_up(I2C_HandleTypeDef *i2c, adv7511 *encoder)
+uint8_t adv7511_power_up(adv7511 *encoder)
 {
     uint8_t status;
     /* ADI recommended values for proper operation. */
@@ -115,14 +123,13 @@ uint8_t adv7511_power_up(I2C_HandleTypeDef *i2c, adv7511 *encoder)
     {
         for (uint8_t i = 0; i < sizeof(adv7511_startup) / 3; i++)
         {
-            status = adv7511_update_register(i2c,
-                                             adv7511_startup[i][add],
+            status = adv7511_update_register(adv7511_startup[i][add],
                                              adv7511_startup[i][msk],
                                              adv7511_startup[i][val]);
 
             if (status != 0)
             {
-                printf("Error with HAL_I2C_Master_Transmit %u\r\n", status);
+                debug_log("Error with HAL_I2C_Master_Transmit %u\r\n", status);
                 return 1;
             }
         }
@@ -132,12 +139,12 @@ uint8_t adv7511_power_up(I2C_HandleTypeDef *i2c, adv7511 *encoder)
     return 0;
 }
 
-uint8_t apply_csc(I2C_HandleTypeDef *i2c, uint8_t *coefficients)
+uint8_t apply_csc(uint8_t *coefficients)
 {
     uint8_t error = 0;
     for (uint8_t i = 0x18; i <= 0x2F; i++)
     {
-        error |= adv7511_update_register(i2c, i, 0xFF, coefficients[i - 0x18]);
+        error |= adv7511_update_register(i, 0xFF, coefficients[i - 0x18]);
     }
 
     return error;

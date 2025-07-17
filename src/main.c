@@ -6,6 +6,7 @@
 #include "adv7511_i2c.h"
 #include "adv7511.h"
 #include "debug.h"
+#include "led.h"
 
 UART_HandleTypeDef huart;
 adv7511 encoder;
@@ -19,7 +20,8 @@ int main(void)
     SystemClock_Config();
 
     init_gpio();
-
+    
+    led_init();
     adv7511_i2c_init();
     debug_init();
 
@@ -128,11 +130,11 @@ int main(void)
         if (pll_lock == 0)
         {
             debug_log("PLL Lock: %u\r\n", pll_lock);
-            HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+            led_status1(false);
         }
         else
         {
-            HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+            led_status1(true);
         }
 
         if ((adv7511_read_register(0x3e) >> 2) != (vic & 0x0F))
@@ -263,17 +265,10 @@ static void init_gpio(void)
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-    __HAL_RCC_GPIOC_CLK_ENABLE();
-
     GPIO_InitStruct.Pin = GPIO_PIN_7;
     GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin = GPIO_PIN_13;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
     //EXTI interrupt init
     HAL_NVIC_SetPriority(EXTI0_1_IRQn, 0, 0);
@@ -282,7 +277,6 @@ static void init_gpio(void)
 
 void _Error_Handler(char *file, int line)
 {
-    while (1)
-    {
-    }
+    debug_log("Error in file %s at line %d\n", file, line);
+    while (1) {}
 }

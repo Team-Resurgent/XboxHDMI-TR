@@ -3,8 +3,11 @@
 
 #pragma once
 
+#pragma once 
+
+#include "stm32.h"
+
 #include <stdbool.h>
-#include "stm32f0xx_hal.h"
 
 #define BIT(nr) (1UL << (nr))
 

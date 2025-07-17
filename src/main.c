@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "stm32f0xx_hal.h"
 #include "adv7511_i2c.h"
+#include "smbus_i2c.h"
 #include "adv7511.h"
 #include "debug.h"
 #include "led.h"
@@ -19,11 +20,11 @@ int main(void)
     HAL_Init();
     SystemClock_Config();
 
+    debug_init();
     init_gpio();
-    
     led_init();
     adv7511_i2c_init();
-    debug_init();
+    smbus_i2c_init();
 
     HAL_Delay(200);
     debug_log("\r\nADV7511 Chip Revision %u\r\n", adv7511_read_register(0x00));

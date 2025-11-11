@@ -53,10 +53,10 @@ int main(void)
 
     //Bit order reverse for input signals. 1 |= LSB .... MSB Reverse Bus Order
     //Just how my PCB is layed out.
-    error |= adv7511_update_register(0x48, 0b01000000, 0b01000000);
+    error |= adv7511_update_register(0x48, 0b01000000, 0b00000000);
 
     //DDR Alignment . 1 |= DDR input is D[35:18] (left aligned), 0 = right aligned
-    error |= adv7511_update_register(0x48, 0b00100000, 0b00000000);
+    error |= adv7511_update_register(0x48, 0b00100000, 0b00100000);
 
     //Clock Delay adjust.
     error |= adv7511_update_register(0xD0, 0b10000000, 0b10000000);

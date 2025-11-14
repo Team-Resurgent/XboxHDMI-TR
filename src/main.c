@@ -51,17 +51,28 @@ int main(void)
     //Set DDR Input Edge  first half of pixel data clocking edge, Bit 1 |= 0 for falling edge, 1 for rising edge CHECK
     error |= adv7511_update_register(0x16, 0b00000010, 0b00000010); //Rising
 
+#define XCALIBUR
+
+#ifdef XCALIBUR
     //Bit order reverse for input signals. 1 |= LSB .... MSB Reverse Bus Order
     //Just how my PCB is layed out.
     error |= adv7511_update_register(0x48, 0b01000000, 0b00000000);
 
     //DDR Alignment . 1 |= DDR input is D[35:18] (left aligned), 0 = right aligned
     error |= adv7511_update_register(0x48, 0b00100000, 0b00100000);
+#else
+    //Bit order reverse for input signals. 1 |= LSB .... MSB Reverse Bus Order
+    //Just how my PCB is layed out.
+    error |= adv7511_update_register(0x48, 0b01000000, 0b01000000);
+
+    //DDR Alignment . 1 |= DDR input is D[35:18] (left aligned), 0 = right aligned
+    error |= adv7511_update_register(0x48, 0b00100000, 0b00000000);
 
     //Clock Delay adjust.
     error |= adv7511_update_register(0xD0, 0b10000000, 0b10000000);
     error |= adv7511_update_register(0xD0, 0b01110000, 3 << 4); //0 to 6, 3 = no delay
     error |= adv7511_update_register(0xBA, 0b11100000, 3 << 5);
+#endif
 
     //Must be 11 for ID=5 (No sync pulse)
     error |= adv7511_update_register(0xD0, 0b00001100, 0b00001100);
@@ -225,7 +236,11 @@ int main(void)
                 //Infoframe output aspect ratio default to 16:9
                 error |= adv7511_update_register(0x56, 0b00110000, 0b00100000);
                 ddr_edge = 1;
-                hs_delay = 299; //259?
+#ifdef XCALIBUR
+                hs_delay = 259;
+#else
+                hs_delay = 299;
+#endif
                 vs_delay = 25;
                 active_w = 1280;
                 active_h = 720;
@@ -241,7 +256,11 @@ int main(void)
                 //Offset for Sync Adjustment Vsync Placement
                 error |= adv7511_update_register(0xDC, 0b11100000, 0 << 5);
                 ddr_edge = 1;
-                hs_delay = 233; //232
+#ifdef XCALIBUR
+                hs_delay = 185;
+#else
+                hs_delay = 233;
+#endif
                 vs_delay = 22;
                 active_w = 1920;
                 active_h = 540;

@@ -51,7 +51,7 @@ int main(void)
     //Set DDR Input Edge  first half of pixel data clocking edge, Bit 1 |= 0 for falling edge, 1 for rising edge CHECK
     error |= adv7511_update_register(0x16, 0b00000010, 0b00000010); //Rising
 
-#define XCALIBUR
+//#define XCALIBUR
 
 #ifdef XCALIBUR
     //Bit order reverse for input signals. 1 |= LSB .... MSB Reverse Bus Order

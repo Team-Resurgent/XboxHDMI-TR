@@ -8,21 +8,16 @@
 #include "adv7511.h"
 #include "debug.h"
 #include "led.h"
+#include "xbox.h"
 
 UART_HandleTypeDef huart;
 adv7511 encoder;
+enum xbox_encoder xbox_encoder;
 
 void SystemClock_Config(void);
 static void init_gpio(void);
 
-int main(void)
-{
-    HAL_Init();
-    SystemClock_Config();
-
-    debug_init();
-    init_gpio();
-    led_init();
+uint8_t init_adv() {
     adv7511_i2c_init();
     smbus_i2c_init();
 
@@ -51,28 +46,22 @@ int main(void)
     //Set DDR Input Edge  first half of pixel data clocking edge, Bit 1 |= 0 for falling edge, 1 for rising edge CHECK
     error |= adv7511_update_register(0x16, 0b00000010, 0b00000010); //Rising
 
-//#define XCALIBUR
-
-#ifdef XCALIBUR
-    //Bit order reverse for input signals. 1 |= LSB .... MSB Reverse Bus Order
-    //Just how my PCB is layed out.
-    error |= adv7511_update_register(0x48, 0b01000000, 0b00000000);
-
-    //DDR Alignment . 1 |= DDR input is D[35:18] (left aligned), 0 = right aligned
-    error |= adv7511_update_register(0x48, 0b00100000, 0b00100000);
-#else
-    //Bit order reverse for input signals. 1 |= LSB .... MSB Reverse Bus Order
-    //Just how my PCB is layed out.
-    error |= adv7511_update_register(0x48, 0b01000000, 0b01000000);
-
-    //DDR Alignment . 1 |= DDR input is D[35:18] (left aligned), 0 = right aligned
-    error |= adv7511_update_register(0x48, 0b00100000, 0b00000000);
-
-    //Clock Delay adjust.
-    error |= adv7511_update_register(0xD0, 0b10000000, 0b10000000);
-    error |= adv7511_update_register(0xD0, 0b01110000, 3 << 4); //0 to 6, 3 = no delay
-    error |= adv7511_update_register(0xBA, 0b11100000, 3 << 5);
-#endif
+    if (xbox_encoder == ENCODER_XCALIBUR)
+    {
+        // Normal Bus Order, DDR Alignment D[35:18] (left aligned)
+        error |= adv7511_update_register(0x48, 0b01100000, 0b00100000);
+        // Disable DDR Negative Edge CLK Delay, with 0ns delay
+        error |= adv7511_update_register(0xD0, 0b11110000, 0b00110000);
+        // -0.4ns clock delay
+        error |= adv7511_update_register(0xBA, 0b11100000, 0b01000000);
+    } else {
+        // LSB .... MSB Reverse Bus Order, DDR Alignment D[17:0] (right aligned)
+        error |= adv7511_update_register(0x48, 0b01100000, 0b01000000);
+        // Enable DDR Negative Edge CLK Delay, with 0ns delay
+        error |= adv7511_update_register(0xD0, 0b11110000, 0b10110000);
+        // No clock delay
+        error |= adv7511_update_register(0xBA, 0b11100000, 0b01100000);
+    }
 
     //Must be 11 for ID=5 (No sync pulse)
     error |= adv7511_update_register(0xD0, 0b00001100, 0b00001100);
@@ -119,6 +108,85 @@ int main(void)
 
     //SPDIF enable
     error |= adv7511_update_register(0x0B, 0b10000000, 0b10000000);
+    return error;
+}
+
+uint8_t set_video_mode(uint8_t mode, bool wide, bool interlaced){
+    if (mode > XBOX_VIDEO_1080i) {
+        return 1;
+    }
+
+    video_setting vs;
+    switch (xbox_encoder) {
+        case ENCODER_CONEXANT:
+            vs = video_settings_conexant[mode];
+            break;
+
+        case ENCODER_FOCUS:
+            vs = video_settings_focus[mode];
+            break;
+
+        case ENCODER_XCALIBUR:
+            vs = video_settings_xcalibur[mode];
+            break;
+
+        default:
+            return 1;
+    }
+
+    uint8_t error = 0;
+    uint8_t ddr_edge = 1;
+
+    if (wide)
+    {
+        //Infoframe output aspect ratio default to 16:9
+        error |= adv7511_update_register(0x56, 0b00110000, 0b00100000);
+        debug_log("Set wide aspect\r\n");
+    }
+    else
+    {
+        //Infoframe output aspect ratio default to 4:3
+        error |= adv7511_update_register(0x56, 0b00110000, 0b00010000);
+        debug_log("Set 4:3 aspect\r\n");
+    }
+
+    if (interlaced) {
+        //Set interlace offset
+        error |= adv7511_update_register(0x37, 0b11100000, 0 << 5);
+        //Offset for Sync Adjustment Vsync Placement
+        error |= adv7511_update_register(0xDC, 0b11100000, 0 << 5);
+    }
+
+    error |= adv7511_update_register(0x16, 0b00000010, ddr_edge << 1);
+    error |= adv7511_update_register(0x36, 0b00111111, (uint8_t)vs.vs_delay);
+    error |= adv7511_update_register(0x35, 0b11111111, (uint8_t)(vs.hs_delay >> 2));
+    error |= adv7511_update_register(0x36, 0b11000000, (uint8_t)(vs.hs_delay << 6));
+    error |= adv7511_update_register(0x37, 0b00011111, (uint8_t)(vs.active_w >> 7));
+    error |= adv7511_update_register(0x38, 0b11111110, (uint8_t)(vs.active_w << 1));
+    error |= adv7511_update_register(0x39, 0b11111111, (uint8_t)(vs.active_h >> 4));
+    error |= adv7511_update_register(0x3A, 0b11110000, (uint8_t)(vs.active_h << 4));
+    debug_log("Actual Pixel Repetition : 0x%02x\r\n", (adv7511_read_register(0x3D) & 0xC0) >> 6);
+    debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);
+
+    return error;
+}
+
+int main(void)
+{
+    HAL_Init();
+    SystemClock_Config();
+
+    debug_init();
+    init_gpio();
+    led_init();
+
+#ifdef XCALIBUR
+    xbox_encoder = ENCODER_XCALIBUR;
+#else
+    xbox_encoder = ENCODER_CONEXANT;
+#endif
+
+    uint8_t error = init_adv();
 
     if (error)
     {
@@ -190,8 +258,6 @@ int main(void)
 
         if (vic & ADV7511_VIC_CHANGED)
         {
-            uint16_t hs_delay = 0, vs_delay = 0, active_w = 0, active_h = 0;
-            uint8_t ddr_edge = 1;
             vic &= ADV7511_VIC_CHANGED_CLEAR;
 
             //Set pixel rep mode to auto
@@ -200,82 +266,26 @@ int main(void)
             if (vic == ADV7511_VIC_VGA_640x480_4_3)
             {
                 debug_log("Set timing for VGA 640x480 4:3\r\n");
-                //Infoframe output aspect ratio default to 4:3
-                error |= adv7511_update_register(0x56, 0b00110000, 0b00010000);
-                ddr_edge = 1;
-                hs_delay = 119; //121
-                vs_delay = 36;
-                active_w = 720;
-                active_h = 480;
+                error |= set_video_mode(XBOX_VIDEO_VGA, false, false);
             }
 
             else if (vic == ADV7511_VIC_480p_4_3 || vic == ADV7511_VIC_480p_16_9 || vic == ADV7511_VIC_UNAVAILABLE)
             {
-                if (vic == ADV7511_VIC_480p_16_9)
-                {
-                    //Infoframe output aspect ratio default to 16:9
-                    error |= adv7511_update_register(0x56, 0b00110000, 0b00100000);
-                    debug_log("Set timing for 480p 16:9\r\n");
-                }
-                else
-                {
-                    //Infoframe output aspect ratio default to 4:3
-                    error |= adv7511_update_register(0x56, 0b00110000, 0b00010000);
-                    debug_log("Set timing for 480p 4:3\r\n");
-                }
-                ddr_edge = 1;
-                hs_delay = 118;
-                vs_delay = 36;
-                active_w = 720;
-                active_h = 480;
+                debug_log("Set timing for 480p\r\n");
+                error |= set_video_mode(XBOX_VIDEO_480p, (vic == ADV7511_VIC_480p_16_9), false);
             }
 
             else if (vic == ADV7511_VIC_720p_60_16_9)
             {
                 debug_log("Set timing for 720p 16:9\r\n");
-                //Infoframe output aspect ratio default to 16:9
-                error |= adv7511_update_register(0x56, 0b00110000, 0b00100000);
-                ddr_edge = 1;
-#ifdef XCALIBUR
-                hs_delay = 259;
-#else
-                hs_delay = 299;
-#endif
-                vs_delay = 25;
-                active_w = 1280;
-                active_h = 720;
+                error |= set_video_mode(XBOX_VIDEO_720p, true, false);
             }
 
             else if (vic == ADV7511_VIC_1080i_60_16_9)
             {
                 debug_log("Set timing for 1080i 16:9\r\n");
-                //Infoframe output aspect ratio default to 16:9
-                error |= adv7511_update_register(0x56, 0b00110000, 0b00100000);
-                //Set interlace offset
-                error |= adv7511_update_register(0x37, 0b11100000, 0 << 5);
-                //Offset for Sync Adjustment Vsync Placement
-                error |= adv7511_update_register(0xDC, 0b11100000, 0 << 5);
-                ddr_edge = 1;
-#ifdef XCALIBUR
-                hs_delay = 185;
-#else
-                hs_delay = 233;
-#endif
-                vs_delay = 22;
-                active_w = 1920;
-                active_h = 540;
+                error |= set_video_mode(XBOX_VIDEO_1080i, false, true);
             }
-
-            error |= adv7511_update_register(0x16, 0b00000010, ddr_edge << 1);
-            error |= adv7511_update_register(0x36, 0b00111111, (uint8_t)vs_delay);
-            error |= adv7511_update_register(0x35, 0b11111111, (uint8_t)(hs_delay >> 2));
-            error |= adv7511_update_register(0x36, 0b11000000, (uint8_t)(hs_delay << 6));
-            error |= adv7511_update_register(0x37, 0b00011111, (uint8_t)(active_w >> 7));
-            error |= adv7511_update_register(0x38, 0b11111110, (uint8_t)(active_w << 1));
-            error |= adv7511_update_register(0x39, 0b11111111, (uint8_t)(active_h >> 4));
-            error |= adv7511_update_register(0x3A, 0b11110000, (uint8_t)(active_h << 4));
-            debug_log("Actual Pixel Repetition : 0x%02x\r\n", (adv7511_read_register(0x3D) & 0xC0) >> 6);
-            debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);
         }
     }
 }
@@ -292,7 +302,7 @@ static void init_gpio(void)
 
     //EXTI interrupt init
     HAL_NVIC_SetPriority(EXTI0_1_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(EXTI0_1_IRQn);    
+    HAL_NVIC_EnableIRQ(EXTI0_1_IRQn);
 }
 
 void _Error_Handler(char *file, int line)

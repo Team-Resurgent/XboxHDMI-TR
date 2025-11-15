@@ -48,25 +48,19 @@ uint8_t init_adv() {
 
     if (xbox_encoder == ENCODER_XCALIBUR)
     {
-        // Normal Bus Order
-        error |= adv7511_update_register(0x48, 0b01000000, 0b00000000);
-
-        // DDR Alignment D[35:18] (left aligned)
-        error |= adv7511_update_register(0x48, 0b00100000, 0b00100000);
-
+        // Normal Bus Order, DDR Alignment D[35:18] (left aligned)
+        error |= adv7511_update_register(0x48, 0b01100000, 0b00100000);
         // Disable DDR Negative Edge CLK Delay, with 0ns delay
         error |= adv7511_update_register(0xD0, 0b11110000, 0b00110000);
-        error |= adv7511_update_register(0xBA, 0b11100000, 0b01000000); // -0.4ns
+        // -0.4ns clock delay
+        error |= adv7511_update_register(0xBA, 0b11100000, 0b01000000);
     } else {
-        // LSB .... MSB Reverse Bus Order
-        error |= adv7511_update_register(0x48, 0b01000000, 0b01000000);
-
-        // DDR Alignment D[17:0] (right aligned)
-        error |= adv7511_update_register(0x48, 0b00100000, 0b00000000);
-
+        // LSB .... MSB Reverse Bus Order, DDR Alignment D[17:0] (right aligned)
+        error |= adv7511_update_register(0x48, 0b01100000, 0b01000000);
         // Enable DDR Negative Edge CLK Delay, with 0ns delay
         error |= adv7511_update_register(0xD0, 0b11110000, 0b10110000);
-        error |= adv7511_update_register(0xBA, 0b11100000, 0b01100000); // no delay
+        // No clock delay
+        error |= adv7511_update_register(0xBA, 0b11100000, 0b01100000);
     }
 
     //Must be 11 for ID=5 (No sync pulse)

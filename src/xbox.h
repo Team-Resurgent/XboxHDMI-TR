@@ -48,7 +48,7 @@ video_setting video_settings_focus[] = {
 
 video_setting video_settings_xcalibur[] = {
     {119, 36,  640, 480}, // VGA
-    {128, 36,  640, 480}, // 480p
+    { 96, 36,  640, 480}, // 480p
     {128, 36,  720, 480}, // 480p (wide)
     {259, 25, 1280, 720}, // 720p
     {185, 22, 1920, 540}  // 1080i

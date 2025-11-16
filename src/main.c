@@ -68,7 +68,7 @@ int main(void)
         if ((adv7511_read_register(0x3e) >> 2) != (vic & 0x0F))
         {
             debug_log("VIC Changed!\r\n");
-            //Set MSB to 1. This indicates a recent change.
+            // Set MSB to 1. This indicates a recent change.
             vic = ADV7511_VIC_CHANGED | adv7511_read_register(0x3e) >> 2;
             debug_log("Detected VIC#: 0x%02x\r\n", vic & ADV7511_VIC_CHANGED_CLEAR);
         }
@@ -100,7 +100,7 @@ int main(void)
             }
 
             encoder.interrupt = 0;
-            //Re-enable interrupts
+            // Re-enable interrupts
             adv7511_update_register(0x96, 0b11000000, 0xC0);
         }
 
@@ -108,36 +108,27 @@ int main(void)
         {
             vic &= ADV7511_VIC_CHANGED_CLEAR;
 
-            //Set pixel rep mode to auto
-            //error |= adv7511_update_register(0x3B, 0b01100000, 0b00000000);
+            // Set pixel rep mode to auto
+            // error |= adv7511_update_register(0x3B, 0b01100000, 0b00000000);
 
             if (vic == ADV7511_VIC_VGA_640x480_4_3)
             {
-                debug_log("Set timing for VGA 640x480 4:3\r\n");
                 error |= set_video_mode(XBOX_VIDEO_VGA, false, false);
             }
-
             else if (vic == ADV7511_VIC_480p_4_3 || vic == ADV7511_VIC_UNAVAILABLE)
             {
-                debug_log("Set timing for 480p\r\n");
-                error |= set_video_mode(XBOX_VIDEO_480p_640, (vic == ADV7511_VIC_480p_16_9), false);
+                error |= set_video_mode(XBOX_VIDEO_480p_640, false, false);
             }
-
             else if (vic == ADV7511_VIC_480p_16_9)
             {
-                debug_log("Set timing for 480p\r\n");
-                error |= set_video_mode(XBOX_VIDEO_480p_720, (vic == ADV7511_VIC_480p_16_9), false);
+                error |= set_video_mode(XBOX_VIDEO_480p_720, true, false);
             }
-
             else if (vic == ADV7511_VIC_720p_60_16_9)
             {
-                debug_log("Set timing for 720p 16:9\r\n");
                 error |= set_video_mode(XBOX_VIDEO_720p, true, false);
             }
-
             else if (vic == ADV7511_VIC_1080i_60_16_9)
             {
-                debug_log("Set timing for 1080i 16:9\r\n");
                 error |= set_video_mode(XBOX_VIDEO_1080i, false, true);
             }
         }
@@ -238,12 +229,12 @@ uint8_t init_adv() {
     return error;
 }
 
-uint8_t set_video_mode(uint8_t mode, bool wide, bool interlaced) {
+uint8_t set_video_mode(uint8_t mode, bool widescreen, bool interlaced) {
     if (mode > XBOX_VIDEO_1080i) {
         return 1;
     }
 
-    video_setting* vs;
+    video_setting* vs = NULL;
     switch (xbox_encoder) {
         case ENCODER_CONEXANT:
             vs = &video_settings_conexant[mode];
@@ -264,25 +255,22 @@ uint8_t set_video_mode(uint8_t mode, bool wide, bool interlaced) {
     uint8_t error = 0;
     uint8_t ddr_edge = 1;
 
-    if (wide)
-    {
-        //Infoframe output aspect ratio default to 16:9
+    if (widescreen) {
+        // Infoframe output aspect ratio default to 16:9
         error |= adv7511_update_register(0x56, 0b00110000, 0b00100000);
-        debug_log("Set wide aspect\r\n");
-    }
-    else
-    {
-        //Infoframe output aspect ratio default to 4:3
+    } else {
+        // Infoframe output aspect ratio default to 4:3
         error |= adv7511_update_register(0x56, 0b00110000, 0b00010000);
-        debug_log("Set 4:3 aspect\r\n");
     }
 
     if (interlaced) {
-        //Set interlace offset
+        // Set interlace offset
         error |= adv7511_update_register(0x37, 0b11100000, 0 << 5);
-        //Offset for Sync Adjustment Vsync Placement
+        // Offset for Sync Adjustment Vsync Placement
         error |= adv7511_update_register(0xDC, 0b11100000, 0 << 5);
     }
+
+    debug_log("Set %d mode, widescree %s, interlaced %s\r\n", mode, widescreen ? "true" : "false", interlaced ? "true" : "false");
 
     error |= adv7511_update_register(0x16, 0b00000010, ddr_edge << 1);
     error |= adv7511_update_register(0x36, 0b00111111, (uint8_t)vs->delay_vs);

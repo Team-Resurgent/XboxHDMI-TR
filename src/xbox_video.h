@@ -8,8 +8,8 @@ enum xbox_encoder {
 };
 
 typedef struct video_setting {
-    uint16_t hs_delay;
-    uint16_t vs_delay;
+    uint16_t delay_hs;
+    uint16_t delay_vs;
     uint16_t active_w;
     uint16_t active_h;
 } video_setting;
@@ -54,4 +54,4 @@ video_setting video_settings_xcalibur[] = {
     {185, 22, 1920, 540}  // 1080i
 };
 
-#endif
+#endif // __XBOX_H__

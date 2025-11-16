@@ -16,4 +16,4 @@ void _Error_Handler(char *, int);
 }
 #endif
 
-#endif
+#endif // __MAIN_H__

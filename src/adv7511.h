@@ -1,9 +1,8 @@
 // Copyright 2021, Ryan Wendland, XboxHDMI by Ryzee119
 // SPDX-License-Identifier: MIT
 
-#pragma once
-
-#pragma once
+#ifndef __ADV7511_H__
+#define __ADV7511_H__
 
 #include "stm32.h"
 
@@ -185,3 +184,5 @@ uint8_t adv7511_write_register(uint8_t address, uint8_t value);
 uint8_t adv7511_write_cec(uint8_t address, uint8_t value);
 void adv7511_struct_init(adv7511 *encoder);
 uint8_t apply_csc(uint8_t *coefficients);
+
+#endif // __ADV7511_H__

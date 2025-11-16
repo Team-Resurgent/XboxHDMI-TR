@@ -1,8 +1,8 @@
 // Copyright 2021, Ryan Wendland, XboxHDMI by Ryzee119
 // SPDX-License-Identifier: MIT
 
-#ifndef _INTERRUPT_H
-#define _INTERRUPT_H
+#ifndef __INTERRUPT_H__
+#define __INTERRUPT_H__
 
 #ifdef __cplusplus
 extern "C"
@@ -23,4 +23,4 @@ void EXTI4_15_IRQHandler(void);
 }
 #endif
 
-#endif
+#endif // __INTERRUPT_H__

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#pragma once 
+#pragma once
 
 #include "stm32.h"
 

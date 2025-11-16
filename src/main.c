@@ -269,10 +269,16 @@ int main(void)
                 error |= set_video_mode(XBOX_VIDEO_VGA, false, false);
             }
 
-            else if (vic == ADV7511_VIC_480p_4_3 || vic == ADV7511_VIC_480p_16_9 || vic == ADV7511_VIC_UNAVAILABLE)
+            else if (vic == ADV7511_VIC_480p_4_3 || vic == ADV7511_VIC_UNAVAILABLE)
             {
                 debug_log("Set timing for 480p\r\n");
-                error |= set_video_mode(XBOX_VIDEO_480p, (vic == ADV7511_VIC_480p_16_9), false);
+                error |= set_video_mode(XBOX_VIDEO_480p_640, (vic == ADV7511_VIC_480p_16_9), false);
+            }
+
+            else if (vic == ADV7511_VIC_480p_16_9)
+            {
+                debug_log("Set timing for 480p\r\n");
+                error |= set_video_mode(XBOX_VIDEO_480p_720, (vic == ADV7511_VIC_480p_16_9), false);
             }
 
             else if (vic == ADV7511_VIC_720p_60_16_9)

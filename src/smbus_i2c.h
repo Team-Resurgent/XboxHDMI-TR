@@ -1,6 +1,6 @@
-#ifndef __MAIN_H__
-#define __MAIN_H__
+#ifndef __SMBUS_I2C_H__
+#define __SMBUS_I2C_H__
 
 void smbus_i2c_init();
 
-#endif // __MAIN_H__
+#endif // __SMBUS_I2C_H__

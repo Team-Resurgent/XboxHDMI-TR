@@ -41,6 +41,8 @@ int main(void)
         debug_log("Encountered error when setting up ADV7511\r\n");
     }
 
+    //smbus_i2c_init();
+
     apply_csc((uint8_t *)identityMatrix);
     uint8_t vic = 0x80;
     uint8_t pll_lock = 0;
@@ -137,7 +139,6 @@ int main(void)
 
 uint8_t init_adv() {
     adv7511_i2c_init();
-    smbus_i2c_init();
 
     HAL_Delay(200);
     debug_log("\r\nADV7511 Chip Revision %u\r\n", adv7511_read_register(0x00));

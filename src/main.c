@@ -41,7 +41,7 @@ int main(void)
         debug_log("Encountered error when setting up ADV7511\r\n");
     }
 
-    //smbus_i2c_init();
+    smbus_i2c_init();
 
     apply_csc((uint8_t *)identityMatrix);
     uint8_t vic = 0x80;

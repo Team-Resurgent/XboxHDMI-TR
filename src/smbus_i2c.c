@@ -15,6 +15,7 @@
 static SMBUS_HandleTypeDef hi2c2;
 static uint32_t state;
 static uint8_t buffer[42];
+static bool hasCommand;
 
 void smbus_i2c_init()
 {
@@ -124,7 +125,7 @@ void HAL_SMBUS_AddrCallback(SMBUS_HandleTypeDef *psmbus, uint8_t TransferDirecti
                 //     buffer[0] = currentCommand->getSize();
                 // }
 
-                //HAL_SMBUS_Slave_Transmit_IT(psmbus, buffer, currentCommand->getSize(), SMBUS_LAST_FRAME_NO_PEC);
+                HAL_SMBUS_Slave_Transmit_IT(psmbus, buffer, 1, SMBUS_LAST_FRAME_NO_PEC);
             }
         }
     }
@@ -176,8 +177,10 @@ void HAL_SMBUS_SlaveRxCpltCallback(SMBUS_HandleTypeDef *psmbus)
     else
     {
         // if (!currentCommand)
-        // {
-        //     state &= ~SMBUS_SMS_RECEIVE;
+        if (hasCommand == false)
+        {
+            state &= ~SMBUS_SMS_RECEIVE;
+            
 
         //     currentCommand = findCommand(buffer[0]);
 
@@ -194,21 +197,23 @@ void HAL_SMBUS_SlaveRxCpltCallback(SMBUS_HandleTypeDef *psmbus)
         //     {
         //         if (currentCommand->canWrite())
         //         {
-        //             // We don't know if this is a read or a write, assume write,
-        //             // and if we're wrong we'll get another START event and end
-        //             // up back in AddrCallback
-        //             if (currentCommand->getSize() > sizeof(uint16_t))
-        //             {
-        //                 // Block Write, get size
-        //                 state |= SMBUS_SMS_RECEIVE | SMBUS_SMS_PROCESSING;
-        //                 HAL_SMBUS_Slave_Receive_IT(psmbus, buffer, 1U, SMBUS_NEXT_FRAME);
-        //             }
-        //             else
-        //             {
-        //                 // Fixed size, get remaining bytes
-        //                 state |= SMBUS_SMS_RECEIVE;
-        //                 HAL_SMBUS_Slave_Receive_IT(psmbus, buffer, currentCommand->getSize(), SMBUS_LAST_FRAME_NO_PEC);
-        //             }
+                    // We don't know if this is a read or a write, assume write,
+                    // and if we're wrong we'll get another START event and end
+                    // up back in AddrCallback
+                    // if (currentCommand->getSize() > sizeof(uint16_t))
+                    // {
+                    //     // Block Write, get size
+                    //     state |= SMBUS_SMS_RECEIVE | SMBUS_SMS_PROCESSING;
+                    //     HAL_SMBUS_Slave_Receive_IT(psmbus, buffer, 1U, SMBUS_NEXT_FRAME);
+                    // }
+                    // else
+                    // {
+                        // Fixed size, get remaining bytes
+                        state |= SMBUS_SMS_RECEIVE;
+                        //HAL_SMBUS_Slave_Receive_IT(psmbus, buffer, currentCommand->getSize(), SMBUS_LAST_FRAME_NO_PEC);
+                        HAL_SMBUS_Slave_Receive_IT(psmbus, buffer, 1, SMBUS_LAST_FRAME_NO_PEC);
+                        hasCommand = true;
+                    //}
         //         }
         //         else
         //         {
@@ -216,8 +221,8 @@ void HAL_SMBUS_SlaveRxCpltCallback(SMBUS_HandleTypeDef *psmbus)
         //             LL_I2C_SetTransferSize(psmbus->Instance, 1);
         //         }
         //     }
-        // }
-        // else
+        }
+        else
         {
             // Block Write, get the size
             if (state & SMBUS_SMS_PROCESSING)
@@ -226,15 +231,16 @@ void HAL_SMBUS_SlaveRxCpltCallback(SMBUS_HandleTypeDef *psmbus)
 
                 size_t size = buffer[1];
                 // if (size != currentCommand->getSize())
-                // {
-                //     // Incorrect command size, NACK
-                //     state |= SMBUS_SMS_IGNORED;
-                //     __HAL_SMBUS_GENERATE_NACK(psmbus);
-                //     if (LL_I2C_IsActiveFlag_TCR(psmbus->Instance))
-                //     {
-                //         LL_I2C_SetTransferSize(psmbus->Instance, 1);
-                //     }
-                // }
+                if (size != 1)
+                {
+                    // Incorrect command size, NACK
+                    state |= SMBUS_SMS_IGNORED;
+                    __HAL_SMBUS_GENERATE_NACK(psmbus);
+                    if (LL_I2C_IsActiveFlag_TCR(psmbus->Instance))
+                    {
+                        LL_I2C_SetTransferSize(psmbus->Instance, 1);
+                    }
+                }
 
                 state |= SMBUS_SMS_RECEIVE;
                 HAL_SMBUS_Slave_Receive_IT(psmbus, buffer, size, SMBUS_LAST_FRAME_NO_PEC);
@@ -271,6 +277,7 @@ void HAL_SMBUS_ListenCpltCallback(SMBUS_HandleTypeDef *psmbus)
     // just reset everything.
     state = SMBUS_SMS_READY;
     //currentCommand = nullptr;
+    hasCommand = false;
 
     // Do it all again
     HAL_SMBUS_EnableListen_IT(psmbus);
@@ -304,6 +311,7 @@ void HAL_SMBUS_ErrorCallback(SMBUS_HandleTypeDef *psmbus)
         }
         state = SMBUS_SMS_READY;
         //currentCommand = nullptr;
+        hasCommand = false;
     }
     else if (error & HAL_SMBUS_ERROR_ARLO)
     {
@@ -319,6 +327,7 @@ void HAL_SMBUS_ErrorCallback(SMBUS_HandleTypeDef *psmbus)
 
         state = SMBUS_SMS_READY;
         //currentCommand = nullptr;
+        hasCommand = false;
 
         HAL_SMBUS_EnableListen_IT(psmbus);
     }
@@ -370,96 +379,4 @@ void I2C2_IRQHandler(void)
 //     while(HAL_SMBUS_GetState(&hsmbus) != HAL_SMBUS_STATE_READY);
 
 //     return !errorFlag;
-// }
-
-// extern "C" void HI2C_XBOX_SMBUS_IRQ_HANDLER(void)
-// {
-//     if (hsmbus.Instance->ISR & (SMBUS_FLAG_BERR | SMBUS_FLAG_ARLO | SMBUS_FLAG_OVR | SMBUS_FLAG_TIMEOUT | SMBUS_FLAG_ALERT | SMBUS_FLAG_PECERR))
-//     {
-//         HAL_SMBUS_ER_IRQHandler(&hsmbus);
-//     }
-//     else
-//     {
-//         HAL_SMBUS_EV_IRQHandler(&hsmbus);
-//     }
-
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// // Called when we finish receiving data
-// void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
-// {
-//     debug_log("I2C RX: Byte[%d]=0x%02X\r\n", rx_count, rx_data[rx_count]);
-    
-//     rx_count++;
-    
-//     // If we have room for more bytes, prepare to receive next byte
-//     if (rx_count < 2)
-//     {
-//         HAL_I2C_Slave_Seq_Receive_IT(hi2c, &rx_data[rx_count], 1, I2C_NEXT_FRAME);
-//     }
-// }
-
-// // Called when master sends STOP or repeated START
-// void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
-// {
-//     debug_log("I2C Listen Complete, rx_count=%d\r\n", rx_count);
-    
-//     if (rx_count == 1)
-//     {
-//         // Received 1 byte (command only) - Xbox read command
-//         last_command = rx_data[0];
-//         debug_log("I2C: Read command for register 0x%02X\r\n", last_command);
-//     }
-//     else if (rx_count == 2)
-//     {
-//         // Received 2 bytes (command + data) - Write command
-//         uint8_t command = rx_data[0];
-//         uint8_t data = rx_data[1];
-//         tx_data[command] = data;
-//         last_command = command;
-//         debug_log("I2C: Write 0x%02X to register 0x%02X\r\n", data, command);
-//     }
-    
-//     rx_count = 0;
-//     HAL_I2C_EnableListen_IT(hi2c);
-// }
-
-// // Called when we finish transmitting data
-// void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c)
-// {
-//     debug_log("I2C TX: CMD=0x%02X DATA=0x%02X sent\r\n", last_command, tx_data[last_command]);
-//     HAL_I2C_EnableListen_IT(hi2c);
-// }
-
-// // Called on I2C error
-// void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
-// {
-//     debug_log("I2C Error: 0x%08X\r\n", hi2c->ErrorCode);
-//     HAL_I2C_EnableListen_IT(hi2c);
-// }
-
-// void I2C2_IRQHandler(void)
-// {
-//     HAL_I2C_EV_IRQHandler(&hi2c2);
-//     HAL_I2C_ER_IRQHandler(&hi2c2);
 // }

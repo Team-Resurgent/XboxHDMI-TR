@@ -23,12 +23,38 @@ typedef enum {
 } video_regions;
 
 typedef enum {
+    // NTSC North America
+    VIDEO_NTSCM_640x480i_NTSCM_60Hz,
+    VIDEO_NTSCM_640x480p_NTSCM_60Hz,
+    VIDEO_NTSCM_720x480i_NTSCM_60Hz,
+    VIDEO_NTSCM_720x480p_NTSCM_60Hz,
+    VIDEO_NTSCM_1280x720p_NTSCM_60Hz,
+    VIDEO_NTSCM_1920x1080i_NTSCM_60Hz,
+    // NTSC Japan
+    VIDEO_NTSCJ_640x480i_NTSCJ_60Hz,
+    VIDEO_NTSCJ_720x480i_NTSCJ_60Hz,
+    VIDEO_NTSCJ_640x480p_NTSCJ_60Hz,
+    VIDEO_NTSCJ_720x480p_NTSCJ_60Hz,
+    VIDEO_NTSCJ_1280x720p_NTSCJ_60Hz,
+    VIDEO_NTSCJ_1920x1080i_NTSCJ_60Hz,
+    // PAL modes
+    VIDEO_PAL_640x480_50Hz,
+    VIDEO_PAL_720x480_50Hz,
+    VIDEO_PAL_640x480_60Hz,
+    VIDEO_PAL_720x480_60Hz,
+    // VGA
+    VIDEO_VGA_640x480_SVGA_60Hz,
+    VIDEO_VGA_800x600_SVGA_60Hz,
+    VIDEO_VGA_1024x768_SVGA_60Hz
+} video_modes;
+
+typedef enum {
     XBOX_VIDEO_VGA,
     XBOX_VIDEO_480p_640,
     XBOX_VIDEO_480p_720,
     XBOX_VIDEO_720p,
     XBOX_VIDEO_1080i
-} video_modes;
+} video_modes_vic;
 
 video_setting video_settings_conexant[] = {
     {119, 36,  640, 480}, // VGA

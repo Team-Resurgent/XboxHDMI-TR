@@ -13,6 +13,7 @@
 UART_HandleTypeDef huart;
 adv7511 encoder;
 enum xbox_encoder xbox_encoder;
+bool i2c_mode; // Set to true when connected to I2C
 
 uint8_t init_adv();
 uint8_t set_video_mode(uint8_t mode, bool wide, bool interlaced);
@@ -21,6 +22,8 @@ static void init_gpio(void);
 
 int main(void)
 {
+    i2c_mode = false;
+
     HAL_Init();
     SystemClock_Config();
 
@@ -47,7 +50,7 @@ int main(void)
     uint8_t vic = 0x80;
     uint8_t pll_lock = 0;
 
-    while (1)
+    while (!i2c_mode)
     {
         if (error)
         {

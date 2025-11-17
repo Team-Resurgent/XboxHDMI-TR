@@ -53,8 +53,11 @@ void smbus_i2c_init()
     // Start listening for address match
     HAL_I2C_EnableListen_IT(&hi2c2);
 
+    // PRE-LOAD TXDR with default response so it's ready immediately
+    hi2c2.Instance->TXDR = 0x42;
+
     currentState = STATE_IDLE;
-    debug_log("I2C Slave 0x%02X ready (NO CLOCK STRETCH)\r\n", I2C_SLAVE_ADDR);
+    debug_log("I2C Slave 0x%02X ready (NoStretch, TXDR pre-loaded)\r\n", I2C_SLAVE_ADDR);
 }
 
 // This gets called when our address is matched
@@ -64,17 +67,12 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
 
     if (TransferDirection == I2C_DIRECTION_TRANSMIT)  // Master reads from us
     {
-        debug_log("AddrMatch READ\r\n");
-
-        if (currentState == STATE_COMMAND_RECEIVED)
-        {
-            debug_log("Sending response: 0x%02X\r\n", responseByte);
-            HAL_I2C_Slave_Seq_Transmit_IT(hi2c, &responseByte, 1, I2C_LAST_FRAME);
-        }
-        else
-        {
-            debug_log("Read requested but no command received (state=%d)\r\n", currentState);
-        }
+        debug_log("AddrMatch READ (state=%d)\r\n", currentState);
+        
+        // Always send response, regardless of state
+        // If no command was received, still send 0x42 for now
+        debug_log("Sending response: 0x%02X\r\n", responseByte);
+        HAL_I2C_Slave_Seq_Transmit_IT(hi2c, &responseByte, 1, I2C_LAST_FRAME);
     }
     else  // Master writes to us
     {
@@ -102,6 +100,9 @@ void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c)
     if (hi2c->Instance != I2C2) return;
     debug_log("TxCplt\r\n");
     currentState = STATE_IDLE;
+    
+    // Reload TXDR for next read
+    hi2c->Instance->TXDR = responseByte;
 }
 
 // This gets called when transaction completes (STOP condition)

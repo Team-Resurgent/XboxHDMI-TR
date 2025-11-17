@@ -65,15 +65,16 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
         debug_log(">>> AddrMatch WRITE\r\n");
         currentState = STATE_WAIT_COMMAND;
 
-        // Enable HAL to receive 1 byte
-        HAL_I2C_Slave_Seq_Receive_IT(hi2c, &commandByte, 1, I2C_FIRST_FRAME);
+        // Receive 1 byte (the command) - use FIRST_AND_LAST for single byte
+        HAL_I2C_Slave_Seq_Receive_IT(hi2c, &commandByte, 1, I2C_FIRST_AND_LAST_FRAME_NO_PEC);
     }
     else // Master reads
     {
-        debug_log(">>> AddrMatch READ (lastCmd=0x%02X)\r\n", commandByte);
+        debug_log(">>> AddrMatch READ (lastCmd=0x%02X, response=0x%02X)\r\n", commandByte, responseByte);
 
-        // HAL will transmit response automatically (set in RxCpltCallback)
-        HAL_I2C_Slave_Seq_Transmit_IT(hi2c, &responseByte, 1, I2C_FIRST_FRAME);
+        // Now transmit the response (prepared in RxCpltCallback)
+        // This is the correct place - master has sent repeated START + READ
+        HAL_I2C_Slave_Seq_Transmit_IT(hi2c, &responseByte, 1, I2C_FIRST_AND_LAST_FRAME);
     }
 }
 
@@ -82,18 +83,22 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
     if (hi2c->Instance != I2C2) return;
 
-    debug_log(">>> RxCplt: cmd=0x%02X <<<\n", commandByte);
+    debug_log(">>> RxCplt: cmd=0x%02X <<<\r\n", commandByte);
 
-    // Determine response immediately
+    // Process command and prepare response
     switch (commandByte)
     {
         case 0x00: responseByte = 0x42; break;
         case 0x23: responseByte = 0x55; break;
         default:   responseByte = 0xFF; break;
     }
-
-    // Arm transmit immediately so TXDR is ready before master clocks it
-    HAL_I2C_Slave_Seq_Transmit_IT(hi2c, &responseByte, 1, I2C_FIRST_AND_LAST_FRAME);
+    
+    currentState = STATE_COMMAND_RECEIVED;
+    debug_log(">>> Response 0x%02X ready, waiting for repeated START\r\n", responseByte);
+    
+    // ⚠️ DO NOT call HAL_I2C_Slave_Seq_Transmit_IT here!
+    // The master is still in WRITE mode. Calling transmit now causes BERR.
+    // Wait for the repeated START (which triggers AddrCallback with READ direction)
 }
 
 // Transmit complete
@@ -120,9 +125,23 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
 {
     if (hi2c->Instance != I2C2) return;
 
-    debug_log("I2C ERROR: 0x%08X\r\n", hi2c->ErrorCode);
+    uint32_t error = hi2c->ErrorCode;
+    
+    // AF (Acknowledge Failure/NACK) is expected in SMBus Read Byte
+    // Master sends NACK after the last byte to signal end of transaction
+    if (error == HAL_I2C_ERROR_AF)
+    {
+        debug_log(">>> NACK received (expected at end of read)\r\n");
+    }
+    else
+    {
+        // Real error (BERR, OVR, etc.)
+        debug_log("I2C ERROR: 0x%08X\r\n", error);
+    }
 
+    // Recover and prepare for next transaction
     currentState = STATE_IDLE;
+    hi2c->ErrorCode = HAL_I2C_ERROR_NONE;
     hi2c->State = HAL_I2C_STATE_READY;
     __HAL_UNLOCK(hi2c);
     HAL_I2C_EnableListen_IT(hi2c);

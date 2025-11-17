@@ -12,7 +12,7 @@ typedef enum {
     STATE_WAIT_REPEATED_START
 } SMBusState;
 
-static SMBUS_HandleTypeDef hi2c2;
+static I2C_HandleTypeDef hi2c2;
 static SMBusState currentState = STATE_IDLE;
 static uint8_t commandByte = 0;
 static uint8_t responseByte = 0x42;  // Hardcoded response for now
@@ -33,136 +33,109 @@ void smbus_i2c_init()
 
     hi2c2.Instance = I2C2;
     hi2c2.Init.Timing = 0x00303D5B;
-    hi2c2.Init.AnalogFilter = SMBUS_ANALOGFILTER_DISABLE;  // Disable analog filter
     hi2c2.Init.OwnAddress1 = (I2C_SLAVE_ADDR << 1);
-    hi2c2.Init.AddressingMode = SMBUS_ADDRESSINGMODE_7BIT;
-    hi2c2.Init.DualAddressMode = SMBUS_DUALADDRESS_DISABLE;
+    hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+    hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
     hi2c2.Init.OwnAddress2 = 0;
-    hi2c2.Init.OwnAddress2Masks = SMBUS_OA2_NOMASK;
-    hi2c2.Init.GeneralCallMode = SMBUS_GENERALCALL_DISABLE;
-    hi2c2.Init.PacketErrorCheckMode = SMBUS_PEC_DISABLE;
-    hi2c2.Init.PeripheralMode = SMBUS_PERIPHERAL_MODE_SMBUS_SLAVE;
-    hi2c2.Init.SMBusTimeout = 0x00008249;  // Enable SMBus timeout
+    hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+    hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+    hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_ENABLE;  // DISABLE clock stretching!
 
-    if (HAL_SMBUS_Init(&hi2c2) != HAL_OK)
+    if (HAL_I2C_Init(&hi2c2) != HAL_OK)
     {
-        debug_log("SMBUS I2C init failed\n");
-        while(1);
-    }
-
-    if (HAL_SMBUS_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
-    {
-        debug_log("SMBUS I2C Config digital filter failed\n");
+        debug_log("I2C init failed\n");
         while(1);
     }
 
     HAL_NVIC_SetPriority(I2C2_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(I2C2_IRQn);
-    
+
     // Start listening for address match
-    HAL_SMBUS_EnableListen_IT(&hi2c2);
-    
+    HAL_I2C_EnableListen_IT(&hi2c2);
+
     currentState = STATE_IDLE;
-    debug_log("I2C Slave 0x%02X ready\r\n", I2C_SLAVE_ADDR);
+    debug_log("I2C Slave 0x%02X ready (NO CLOCK STRETCH)\r\n", I2C_SLAVE_ADDR);
 }
 
 // This gets called when our address is matched
-void HAL_SMBUS_AddrCallback(SMBUS_HandleTypeDef *psmbus, uint8_t TransferDirection, uint16_t AddrMatchCode)
+void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, uint16_t AddrMatchCode)
 {
-    if (psmbus->Instance != I2C2) return;
+    if (hi2c->Instance != I2C2) return;
 
-    if (TransferDirection == I2C_DIRECTION_RECEIVE)
+    if (TransferDirection == I2C_DIRECTION_TRANSMIT)  // Master reads from us
     {
-        // Master wants to READ from us
         debug_log("AddrMatch READ\r\n");
-        
+
         if (currentState == STATE_COMMAND_RECEIVED)
         {
-            // Send our response using LAST_FRAME - not FIRST_AND_LAST
             debug_log("Sending response: 0x%02X\r\n", responseByte);
-            HAL_SMBUS_Slave_Transmit_IT(psmbus, &responseByte, 1, SMBUS_LAST_FRAME_NO_PEC);
+            HAL_I2C_Slave_Seq_Transmit_IT(hi2c, &responseByte, 1, I2C_LAST_FRAME);
+        }
+        else
+        {
+            debug_log("Read requested but no command received (state=%d)\r\n", currentState);
         }
     }
-    else
+    else  // Master writes to us
     {
-        // Master wants to WRITE to us (send command)
         debug_log("AddrMatch WRITE\r\n");
         currentState = STATE_WAIT_COMMAND;
-        
-        HAL_SMBUS_Slave_Receive_IT(psmbus, &commandByte, 1, SMBUS_FIRST_AND_LAST_FRAME_NO_PEC);
+        HAL_I2C_Slave_Seq_Receive_IT(hi2c, &commandByte, 1, I2C_FIRST_FRAME);
     }
 }
 
 // This gets called when we finish receiving
-void HAL_SMBUS_SlaveRxCpltCallback(SMBUS_HandleTypeDef *psmbus)
+void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
-    if (psmbus->Instance != I2C2) return;
+    if (hi2c->Instance != I2C2) return;
 
     debug_log("RxCplt: cmd=0x%02X\r\n", commandByte);
     currentState = STATE_COMMAND_RECEIVED;
-    
-    // Prepare response based on command
-    // For now, always return 0x42
     responseByte = 0x42;
-    
-    debug_log("Response ready, waiting for repeated START\r\n");
+
+    debug_log("Response ready\r\n");
 }
 
 // This gets called when we finish transmitting
-void HAL_SMBUS_SlaveTxCpltCallback(SMBUS_HandleTypeDef *psmbus)
+void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
-    if (psmbus->Instance != I2C2) return;
-    
-    debug_log("TxCplt - Byte sent, waiting for master NACK/STOP...\r\n");
-    
-    // Do absolutely nothing - let timeout or error callback handle it
-    // The master should NACK and send STOP, which should trigger error or listen complete
+    if (hi2c->Instance != I2C2) return;
+    debug_log("TxCplt\r\n");
+    currentState = STATE_IDLE;
 }
 
 // This gets called when transaction completes (STOP condition)
-void HAL_SMBUS_ListenCpltCallback(SMBUS_HandleTypeDef *psmbus)
+void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
 {
-    if (psmbus->Instance != I2C2) return;
-    
+    if (hi2c->Instance != I2C2) return;
+
     debug_log("ListenCplt - STOP received\r\n");
     currentState = STATE_IDLE;
-    HAL_SMBUS_EnableListen_IT(psmbus);
+    HAL_I2C_EnableListen_IT(hi2c);
 }
 
 // This gets called on errors
-void HAL_SMBUS_ErrorCallback(SMBUS_HandleTypeDef *psmbus)
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
 {
-    if (psmbus->Instance != I2C2) return;
+    if (hi2c->Instance != I2C2) return;
 
-    uint32_t error = psmbus->ErrorCode;
-    uint32_t isr = psmbus->Instance->ISR;
-    
-    debug_log("SMBUS ERROR: 0x%08X ISR=0x%08X\r\n", error, isr);
-    debug_log("  ACKF=%d HALTIMEOUT=%d\r\n",
-              (error & HAL_SMBUS_ERROR_ACKF) ? 1 : 0,
-              (error & HAL_SMBUS_ERROR_HALTIMEOUT) ? 1 : 0);
+    uint32_t error = hi2c->ErrorCode;
+    debug_log("I2C ERROR: 0x%08X\r\n", error);
 
-    // NACK after slave transmit is NORMAL for SMBus Read Byte - master signals end
-    if (error & HAL_SMBUS_ERROR_ACKF)
+    if (error & HAL_I2C_ERROR_AF)
     {
-        debug_log("NACK received - this is normal for Read Byte, clearing and continuing\r\n");
-        __HAL_SMBUS_CLEAR_FLAG(psmbus, SMBUS_FLAG_AF);
+        debug_log("NACK (expected for Read Byte)\r\n");
     }
 
-    // Reset state and re-enable listening
     currentState = STATE_IDLE;
-    
-    psmbus->PreviousState = psmbus->State;
-    psmbus->State = HAL_SMBUS_STATE_READY;
-    __HAL_UNLOCK(psmbus);
-    
-    HAL_SMBUS_EnableListen_IT(psmbus);
-    debug_log("ErrorCallback - recovered and ready for next transaction\r\n");
+    hi2c->State = HAL_I2C_STATE_READY;
+    __HAL_UNLOCK(hi2c);
+    HAL_I2C_EnableListen_IT(hi2c);
 }
 
 // IRQ Handler
 void I2C2_IRQHandler(void)
 {
-    HAL_SMBUS_EV_IRQHandler(&hi2c2);
-    HAL_SMBUS_ER_IRQHandler(&hi2c2);
+    HAL_I2C_EV_IRQHandler(&hi2c2);
+    HAL_I2C_ER_IRQHandler(&hi2c2);
 }

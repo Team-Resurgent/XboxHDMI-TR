@@ -45,7 +45,7 @@ void smbus_i2c_init()
         while(1);
     }
 
-    HAL_NVIC_SetPriority(I2C2_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(I2C2_IRQn, 1, 0);
     HAL_NVIC_EnableIRQ(I2C2_IRQn);
 
     // Start listening for address match

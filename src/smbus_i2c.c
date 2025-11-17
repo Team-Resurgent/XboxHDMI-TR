@@ -4,25 +4,23 @@
 
 #define I2C_SLAVE_ADDR 0x69
 
-// Simple state machine
 typedef enum {
     STATE_IDLE = 0,
     STATE_WAIT_COMMAND,
-    STATE_COMMAND_RECEIVED,
-    STATE_WAIT_REPEATED_START
+    STATE_COMMAND_RECEIVED
 } SMBusState;
 
 static I2C_HandleTypeDef hi2c2;
 static SMBusState currentState = STATE_IDLE;
 static uint8_t commandByte = 0;
-static uint8_t responseByte = 0x42;  // Hardcoded response for now
+static uint8_t responseByte = 0x42;  // default response
 
 void smbus_i2c_init()
 {
     __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_I2C2_CLK_ENABLE();
 
-    // Configure GPIO pins for I2C2: PB10=SCL, PB11=SDA
+    // Configure I2C2 pins: PB10=SCL, PB11=SDA
     GPIO_InitTypeDef gpio = {0};
     gpio.Pin = GPIO_PIN_10 | GPIO_PIN_11;
     gpio.Mode = GPIO_MODE_AF_OD;
@@ -39,7 +37,7 @@ void smbus_i2c_init()
     hi2c2.Init.OwnAddress2 = 0;
     hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
     hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-    hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_ENABLE;  // DISABLE clock stretching!
+    hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE; // ENABLE clock stretching
 
     if (HAL_I2C_Init(&hi2c2) != HAL_OK)
     {
@@ -53,59 +51,61 @@ void smbus_i2c_init()
     // Start listening for address match
     HAL_I2C_EnableListen_IT(&hi2c2);
 
-    // PRE-LOAD TXDR with default response so it's ready immediately
-    hi2c2.Instance->TXDR = 0x42;
-
     currentState = STATE_IDLE;
-    debug_log("I2C Slave 0x%02X ready (NoStretch, TXDR pre-loaded)\r\n", I2C_SLAVE_ADDR);
+    debug_log("I2C Slave 0x%02X ready\r\n", I2C_SLAVE_ADDR);
 }
 
-// This gets called when our address is matched
+// Address match callback
 void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, uint16_t AddrMatchCode)
 {
     if (hi2c->Instance != I2C2) return;
 
-    if (TransferDirection == I2C_DIRECTION_TRANSMIT)  // Master reads from us
+    if (TransferDirection == I2C_DIRECTION_TRANSMIT) // Master writes
     {
-        debug_log("AddrMatch READ (state=%d)\r\n", currentState);
-        
-        // Always send response, regardless of state
-        // If no command was received, still send 0x42 for now
-        debug_log("Sending response: 0x%02X\r\n", responseByte);
-        HAL_I2C_Slave_Seq_Transmit_IT(hi2c, &responseByte, 1, I2C_LAST_FRAME);
-    }
-    else  // Master writes to us
-    {
-        debug_log("AddrMatch WRITE\r\n");
+        debug_log(">>> AddrMatch WRITE\r\n");
         currentState = STATE_WAIT_COMMAND;
+
+        // Enable HAL to receive 1 byte
         HAL_I2C_Slave_Seq_Receive_IT(hi2c, &commandByte, 1, I2C_FIRST_FRAME);
+    }
+    else // Master reads
+    {
+        debug_log(">>> AddrMatch READ (lastCmd=0x%02X)\r\n", commandByte);
+
+        // HAL will transmit response automatically (set in RxCpltCallback)
+        HAL_I2C_Slave_Seq_Transmit_IT(hi2c, &responseByte, 1, I2C_FIRST_FRAME);
     }
 }
 
-// This gets called when we finish receiving
+// Receive complete
 void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
     if (hi2c->Instance != I2C2) return;
 
-    debug_log("RxCplt: cmd=0x%02X\r\n", commandByte);
-    currentState = STATE_COMMAND_RECEIVED;
-    responseByte = 0x42;
+    debug_log(">>> RxCplt: cmd=0x%02X <<<\n", commandByte);
 
-    debug_log("Response ready\r\n");
+    // Determine response immediately
+    switch (commandByte)
+    {
+        case 0x00: responseByte = 0x42; break;
+        case 0x23: responseByte = 0x55; break;
+        default:   responseByte = 0xFF; break;
+    }
+
+    // Arm transmit immediately so TXDR is ready before master clocks it
+    HAL_I2C_Slave_Seq_Transmit_IT(hi2c, &responseByte, 1, I2C_FIRST_AND_LAST_FRAME);
 }
 
-// This gets called when we finish transmitting
+// Transmit complete
 void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
     if (hi2c->Instance != I2C2) return;
-    debug_log("TxCplt\r\n");
+
+    debug_log(">>> TxCplt: response=0x%02X <<<\n", responseByte);
     currentState = STATE_IDLE;
-    
-    // Reload TXDR for next read
-    hi2c->Instance->TXDR = responseByte;
 }
 
-// This gets called when transaction completes (STOP condition)
+// STOP condition / Listen complete
 void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
 {
     if (hi2c->Instance != I2C2) return;
@@ -115,18 +115,12 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
     HAL_I2C_EnableListen_IT(hi2c);
 }
 
-// This gets called on errors
+// Error callback
 void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
 {
     if (hi2c->Instance != I2C2) return;
 
-    uint32_t error = hi2c->ErrorCode;
-    debug_log("I2C ERROR: 0x%08X\r\n", error);
-
-    if (error & HAL_I2C_ERROR_AF)
-    {
-        debug_log("NACK (expected for Read Byte)\r\n");
-    }
+    debug_log("I2C ERROR: 0x%08X\r\n", hi2c->ErrorCode);
 
     currentState = STATE_IDLE;
     hi2c->State = HAL_I2C_STATE_READY;
@@ -134,7 +128,7 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
     HAL_I2C_EnableListen_IT(hi2c);
 }
 
-// IRQ Handler
+// IRQ handler
 void I2C2_IRQHandler(void)
 {
     HAL_I2C_EV_IRQHandler(&hi2c2);

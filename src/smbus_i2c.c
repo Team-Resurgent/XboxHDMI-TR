@@ -1,6 +1,7 @@
 #include "smbus_i2c.h"
 #include "stm32.h"
 #include "debug.h"
+#include <string.h>
 
 #define I2C_SLAVE_ADDR 0x69
 #define I2C_WRITE_BIT 0x80
@@ -38,24 +39,12 @@ static I2C_HandleTypeDef hi2c2;
 static SMBusState currentState = STATE_IDLE;
 static SMBusSettings scratchSettings = {0};
 static SMBusSettings settings = {0};
-static uint16_t bank = 0;
-static uint16_t index = 0;
+static uint16_t store_bank = 0;
+static uint16_t store_index = 0;
 
 static uint8_t commandByte = 0;
 static uint8_t dataByte = 0;
 static uint8_t responseByte = 0x42;  // default response
-
-static void _set_scratch_value(uint8_t value)
-{
-    uint16_t settings_size = sizeof(SMBusSettings);
-    uint16_t settings_offset = (bank << 8) | index;
-    if (settings_offset >= settings_size)
-    {
-        return;
-    }
-    uint8_t *scratch_settings_data = (uint8_t*)&scratchSettings;
-    scratch_settings_data[settings_offset] = value;
-}
 
 // -------------------- Initialization --------------------
 void smbus_i2c_init(void)
@@ -151,14 +140,14 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
                 case I2C_HDMI_COMMAND_READ_STORE: 
                 {
                     uint16_t settings_size = sizeof(SMBusSettings);
-                    uint16_t settings_offset = (bank << 8) | index;
+                    uint16_t settings_offset = (store_bank << 8) | store_index;
                     if (settings_offset >= settings_size)
                     {
                         break;
                     }
                     uint8_t *settings_data = (uint8_t*)&settings;
                     responseByte = settings_data[settings_offset];
-                    index = (index + 1) & 0xff; // We could increment bank on overflow but not needed at moment
+                    store_index = (store_index + 1) & 0xff; // We could increment bank on overflow but not needed at moment
                     break;
                 }
                 case I2C_HDMI_COMMAND_READ_VERSION1: 
@@ -197,24 +186,24 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
             case I2C_HDMI_COMMAND_WRITE_STORE: 
             {
                 uint16_t settings_size = sizeof(SMBusSettings);
-                uint16_t settings_offset = (bank << 8) | index;
+                uint16_t settings_offset = (store_bank << 8) | store_index;
                 if (settings_offset >= settings_size)
                 {
                     break;
                 }
                 uint8_t *scratch_settings_data = (uint8_t*)&scratchSettings;
                 scratch_settings_data[settings_offset] = dataByte;
-                index = (index + 1) & 0xff; // We could increment bank on overflow but not needed at moment
+                store_index = (store_index + 1) & 0xff; // We could increment bank on overflow but not needed at moment
                 break;
             }
             case I2C_HDMI_COMMAND_WRITE_BANK: 
             {
-                bank = dataByte; 
+                store_bank = dataByte; 
                 break;
             }
             case I2C_HDMI_COMMAND_WRITE_INDEX:
             {
-                 index = dataByte; 
+                 store_index = dataByte; 
                  break;
             }
             case I2C_HDMI_COMMAND_WRITE_APPLY: 

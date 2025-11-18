@@ -94,11 +94,10 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
 
     if(TransferDirection == I2C_DIRECTION_TRANSMIT)
     {
-        // Master writes command byte
+        // Master writes command byte (data byte is received via RxCpltCallback chaining)
         debug_ring_log("SMBus: AddrW\r\n");
         currentState = STATE_WAIT_COMMAND;
-        // Use FIRST_FRAME to allow continuation for write commands
-        HAL_I2C_Slave_Seq_Receive_IT(hi2c, &commandByte, 1, I2C_FIRST_FRAME);
+        HAL_I2C_Slave_Seq_Receive_IT(hi2c, &commandByte, 1, I2C_NEXT_FRAME);
     }
     else // Master reads
     {
@@ -126,15 +125,19 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
         // Command byte received
         debug_ring_log("SMBus: RxCmd=0x%02X\r\n", commandByte);
         
-        // Check if this is a write command (0x04)
+        // Check if this is a write command (MSB set)
         if((commandByte & I2C_WRITE_BIT) == I2C_WRITE_BIT)
         {
-            debug_ring_log("SMBus: WriteCmd, waiting for data\r\n");
+            // Write command - data byte follows immediately in same transaction
+            debug_ring_log("SMBus: WriteCmd detected\r\n");
             currentState = STATE_WAIT_WRITE_DATA;
+            // Use NEXT_FRAME instead of LAST_FRAME to avoid triggering transmit setup
+            // STOP condition will naturally end the transaction
             HAL_I2C_Slave_Seq_Receive_IT(hi2c, &dataByte, 1, I2C_NEXT_FRAME);
         }
         else
         {
+            // Read command - prepare response
             switch(commandByte)
             {
                 case I2C_HDMI_COMMAND_READ_STORE: 
@@ -221,7 +224,9 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
             }
         }
         
+        // Write complete
         currentState = STATE_IDLE;
+        debug_ring_log("SMBus: Write complete\r\n");
     }
 }
 
@@ -229,7 +234,7 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
 void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
     if(hi2c->Instance != I2C2) return;
-    debug_ring_log("SMBus: TxDone\r\n");
+    debug_ring_log("SMBus: TxDone (state=%d)\r\n", currentState);
     currentState = STATE_IDLE;
 }
 
@@ -237,7 +242,7 @@ void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c)
 void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
 {
     if(hi2c->Instance != I2C2) return;
-    debug_ring_log("SMBus: Stop\r\n");
+    debug_ring_log("SMBus: Stop (state=%d)\r\n", currentState);
     currentState = STATE_IDLE;
     HAL_I2C_EnableListen_IT(hi2c);
 }

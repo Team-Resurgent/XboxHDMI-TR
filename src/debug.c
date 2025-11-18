@@ -6,7 +6,7 @@
 
 static UART_HandleTypeDef huart2;
 
-#define RING_BUFFER_SIZE 1024
+#define RING_BUFFER_SIZE 2048
 
 typedef struct {
     char buffer[RING_BUFFER_SIZE];

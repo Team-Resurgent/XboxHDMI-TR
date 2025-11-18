@@ -52,6 +52,8 @@ int main(void)
 
     while (!i2c_mode)
     {
+        debug_ring_flush();
+
         if (error)
         {
             debug_log("Encountered error when setting up ADV7511\r\n");

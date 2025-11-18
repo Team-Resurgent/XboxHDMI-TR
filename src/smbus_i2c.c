@@ -41,7 +41,10 @@ void smbus_i2c_init(void)
     hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE; // allow clock stretching
 
     if(HAL_I2C_Init(&hi2c2) != HAL_OK)
+    {
+        debug_log("SMBUS I2C init failed\n");
         while(1);
+    }
 
     HAL_NVIC_SetPriority(I2C2_IRQn, 1, 0);
     HAL_NVIC_EnableIRQ(I2C2_IRQn);
@@ -50,6 +53,7 @@ void smbus_i2c_init(void)
     HAL_I2C_EnableListen_IT(&hi2c2);
 
     currentState = STATE_IDLE;
+    debug_log("SMBus: I2C Slave 0x%02X ready\r\n", I2C_SLAVE_ADDR);
 }
 
 // -------------------- Address Match Callback --------------------
@@ -60,6 +64,7 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
     if(TransferDirection == I2C_DIRECTION_TRANSMIT)
     {
         // Master writes command byte
+        debug_ring_log("SMBus: AddrW\r\n");
         currentState = STATE_WAIT_COMMAND;
         HAL_I2C_Slave_Seq_Receive_IT(hi2c, &commandByte, 1, I2C_FIRST_AND_LAST_FRAME);
     }
@@ -68,10 +73,12 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
         // Only transmit if command was received
         if(currentState == STATE_COMMAND_RECEIVED)
         {
+            debug_ring_log("SMBus: AddrR cmd=0x%02X resp=0x%02X\r\n", commandByte, responseByte);
             HAL_I2C_Slave_Seq_Transmit_IT(hi2c, &responseByte, 1, I2C_LAST_FRAME);
         }
         else
         {
+            debug_ring_log("SMBus: AddrR NO_CMD\r\n");
             __HAL_I2C_GENERATE_NACK(hi2c); // NACK if no command
         }
     }
@@ -85,11 +92,14 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
     // Prepare response immediately for repeated START
     switch(commandByte)
     {
-        case 0x00: responseByte = 0x42; break;
+        case 0x00: responseByte = 0x01; break;
+        case 0x01: responseByte = 0x02; break;
+        case 0x02: responseByte = 0x03; break;
         case 0x23: responseByte = 0x55; break;
         default:   responseByte = 0xFF; break;
     }
 
+    debug_ring_log("SMBus: RxDone cmd=0x%02X\r\n", commandByte);
     currentState = STATE_COMMAND_RECEIVED;
 
     // Arm transmit for next repeated START (ready immediately)
@@ -100,6 +110,7 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
 void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
     if(hi2c->Instance != I2C2) return;
+    debug_ring_log("SMBus: TxDone\r\n");
     currentState = STATE_IDLE;
 }
 
@@ -107,6 +118,7 @@ void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c)
 void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
 {
     if(hi2c->Instance != I2C2) return;
+    debug_ring_log("SMBus: Stop\r\n");
     currentState = STATE_IDLE;
     HAL_I2C_EnableListen_IT(hi2c);
 }
@@ -117,6 +129,16 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
     if(hi2c->Instance != I2C2) return;
 
     uint32_t err = hi2c->ErrorCode;
+    
+    // Log errors (AF/NACK is expected at end of read)
+    if(err == HAL_I2C_ERROR_AF)
+    {
+        debug_ring_log("SMBus: NACK\r\n");
+    }
+    else if(err != HAL_I2C_ERROR_NONE)
+    {
+        debug_ring_log("SMBus: ERR=0x%02X\r\n", (err & 0xFF));
+    }
 
     // Recover from errors
     hi2c->ErrorCode = HAL_I2C_ERROR_NONE;

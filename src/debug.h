@@ -5,5 +5,7 @@
 
 void debug_init();
 void debug_log(const char *fmt, ...);
+void debug_ring_log(const char *fmt, ...);
+void debug_ring_flush();
 
 #endif // __DEBUG_H__

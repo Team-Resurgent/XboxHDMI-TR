@@ -6,6 +6,16 @@
 
 static UART_HandleTypeDef huart2;
 
+#define RING_BUFFER_SIZE 1024
+
+typedef struct {
+    char buffer[RING_BUFFER_SIZE];
+    volatile uint16_t head;
+    volatile uint16_t tail;
+} RingBuffer;
+
+static RingBuffer debugBuffer = {0};
+
 void debug_init() 
 {
     __HAL_RCC_GPIOA_CLK_ENABLE();
@@ -41,4 +51,34 @@ void debug_log(const char *fmt, ...)
     vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
     HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+}
+
+void debug_ring_log(const char *fmt, ...)
+{
+    char buffer[256]; 
+    va_list args;
+    va_start(args, fmt);
+    int len = vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+
+    for(int i = 0; i < len; i++)
+    {
+        uint16_t next = (debugBuffer.head + 1) % RING_BUFFER_SIZE;
+        if(next == debugBuffer.tail) 
+        {
+            break;
+        }
+        debugBuffer.buffer[debugBuffer.head] = buffer[i];
+        debugBuffer.head = next;
+    }
+}
+
+void debug_ring_flush()
+{
+    while(debugBuffer.tail != debugBuffer.head)
+    {
+        char c = debugBuffer.buffer[debugBuffer.tail];
+        debugBuffer.tail = (debugBuffer.tail + 1) % RING_BUFFER_SIZE;
+        HAL_UART_Transmit(&huart2, (uint8_t*)&c, 1, HAL_MAX_DELAY);
+    }
 }

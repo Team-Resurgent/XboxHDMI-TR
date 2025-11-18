@@ -7,12 +7,14 @@
 typedef enum {
     STATE_IDLE = 0,
     STATE_WAIT_COMMAND,
-    STATE_COMMAND_RECEIVED
+    STATE_COMMAND_RECEIVED,
+    STATE_WAIT_WRITE_DATA
 } SMBusState;
 
 static I2C_HandleTypeDef hi2c2;
 static SMBusState currentState = STATE_IDLE;
 static uint8_t commandByte = 0;
+static uint8_t dataByte = 0;
 static uint8_t responseByte = 0x42;  // default response
 
 // -------------------- Initialization --------------------
@@ -66,7 +68,8 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
         // Master writes command byte
         debug_ring_log("SMBus: AddrW\r\n");
         currentState = STATE_WAIT_COMMAND;
-        HAL_I2C_Slave_Seq_Receive_IT(hi2c, &commandByte, 1, I2C_FIRST_AND_LAST_FRAME);
+        // Use FIRST_FRAME to allow continuation for write commands
+        HAL_I2C_Slave_Seq_Receive_IT(hi2c, &commandByte, 1, I2C_FIRST_FRAME);
     }
     else // Master reads
     {
@@ -89,21 +92,45 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
     if(hi2c->Instance != I2C2) return;
 
-    // Prepare response immediately for repeated START
-    switch(commandByte)
+    if(currentState == STATE_WAIT_COMMAND)
     {
-        case 0x00: responseByte = 0x01; break;
-        case 0x01: responseByte = 0x02; break;
-        case 0x02: responseByte = 0x03; break;
-        case 0x23: responseByte = 0x55; break;
-        default:   responseByte = 0xFF; break;
+        // Command byte received
+        debug_ring_log("SMBus: RxCmd=0x%02X\r\n", commandByte);
+        
+        // Check if this is a write command (0x04)
+        if(commandByte == 0x04)
+        {
+            // Command 0x04 is a write - expect data byte next
+            debug_ring_log("SMBus: WriteCmd, waiting for data\r\n");
+            currentState = STATE_WAIT_WRITE_DATA;
+            HAL_I2C_Slave_Seq_Receive_IT(hi2c, &dataByte, 1, I2C_NEXT_FRAME);
+        }
+        else
+        {
+            // Other commands are reads - prepare response
+            switch(commandByte)
+            {
+                case 0x00: responseByte = 0x01; break;
+                case 0x01: responseByte = 0x02; break;
+                case 0x02: responseByte = 0x03; break;
+                case 0x23: responseByte = 0x55; break;
+                default:   responseByte = 0xFF; break;
+            }
+            
+            currentState = STATE_COMMAND_RECEIVED;
+            // DON'T arm transmit here - wait for repeated START + READ
+        }
     }
-
-    debug_ring_log("SMBus: RxDone cmd=0x%02X\r\n", commandByte);
-    currentState = STATE_COMMAND_RECEIVED;
-
-    // Arm transmit for next repeated START (ready immediately)
-    HAL_I2C_Slave_Seq_Transmit_IT(hi2c, &responseByte, 1, I2C_LAST_FRAME);
+    else if(currentState == STATE_WAIT_WRITE_DATA)
+    {
+        // Data byte received for write command
+        debug_ring_log("SMBus: RxData cmd=0x%02X data=0x%02X\r\n", commandByte, dataByte);
+        
+        // Process write command 0x04 here
+        // TODO: Add your handler for command 0x04 with dataByte
+        
+        currentState = STATE_IDLE;
+    }
 }
 
 // -------------------- Transmit Complete Callback --------------------

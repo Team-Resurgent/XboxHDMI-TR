@@ -3,6 +3,20 @@
 #include "debug.h"
 
 #define I2C_SLAVE_ADDR 0x69
+#define I2C_WRITE_BIT 0x80
+
+// Read Actions
+#define I2C_HDMI_COMMAND_READ_STORE 0
+#define I2C_HDMI_COMMAND_READ_VERSION1 1
+#define I2C_HDMI_COMMAND_READ_VERSION2 2
+#define I2C_HDMI_COMMAND_READ_VERSION3 3
+#define I2C_HDMI_COMMAND_READ_VERSION4 4
+
+// Write Actions
+#define I2C_HDMI_COMMAND_WRITE_STORE 128
+#define I2C_HDMI_COMMAND_WRITE_BANK 129
+#define I2C_HDMI_COMMAND_WRITE_INDEX 130
+#define I2C_HDMI_COMMAND_WRITE_APPLY 131
 
 typedef enum {
     STATE_IDLE = 0,
@@ -11,11 +25,37 @@ typedef enum {
     STATE_WAIT_WRITE_DATA
 } SMBusState;
 
+typedef struct
+{
+    uint8_t encoder;
+    uint8_t region;
+    uint32_t mode;
+    uint32_t title;
+} SMBusSettings;
+
+
 static I2C_HandleTypeDef hi2c2;
 static SMBusState currentState = STATE_IDLE;
+static SMBusSettings scratchSettings = {0};
+static SMBusSettings settings = {0};
+static uint16_t bank = 0;
+static uint16_t index = 0;
+
 static uint8_t commandByte = 0;
 static uint8_t dataByte = 0;
 static uint8_t responseByte = 0x42;  // default response
+
+static void _set_scratch_value(uint8_t value)
+{
+    uint16_t settings_size = sizeof(SMBusSettings);
+    uint16_t settings_offset = (bank << 8) | index;
+    if (settings_offset >= settings_size)
+    {
+        return;
+    }
+    uint8_t *scratch_settings_data = (uint8_t*)&scratchSettings;
+    scratch_settings_data[settings_offset] = value;
+}
 
 // -------------------- Initialization --------------------
 void smbus_i2c_init(void)
@@ -98,27 +138,53 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
         debug_ring_log("SMBus: RxCmd=0x%02X\r\n", commandByte);
         
         // Check if this is a write command (0x04)
-        if(commandByte == 0x04)
+        if((commandByte & I2C_WRITE_BIT) == I2C_WRITE_BIT)
         {
-            // Command 0x04 is a write - expect data byte next
             debug_ring_log("SMBus: WriteCmd, waiting for data\r\n");
             currentState = STATE_WAIT_WRITE_DATA;
             HAL_I2C_Slave_Seq_Receive_IT(hi2c, &dataByte, 1, I2C_NEXT_FRAME);
         }
         else
         {
-            // Other commands are reads - prepare response
             switch(commandByte)
             {
-                case 0x00: responseByte = 0x01; break;
-                case 0x01: responseByte = 0x02; break;
-                case 0x02: responseByte = 0x03; break;
-                case 0x23: responseByte = 0x55; break;
-                default:   responseByte = 0xFF; break;
+                case I2C_HDMI_COMMAND_READ_STORE: 
+                {
+                    uint16_t settings_size = sizeof(SMBusSettings);
+                    uint16_t settings_offset = (bank << 8) | index;
+                    if (settings_offset >= settings_size)
+                    {
+                        break;
+                    }
+                    uint8_t *settings_data = (uint8_t*)&settings;
+                    responseByte = settings_data[settings_offset];
+                    index = (index + 1) & 0xff; // We could increment bank on overflow but not needed at moment
+                    break;
+                }
+                case I2C_HDMI_COMMAND_READ_VERSION1: 
+                {
+                    responseByte = 0x01; 
+                    break;
+                }
+                case I2C_HDMI_COMMAND_READ_VERSION2: 
+                {
+                    responseByte = 0x02; 
+                    break;
+                }
+                case I2C_HDMI_COMMAND_READ_VERSION3: 
+                {
+                    responseByte = 0x03;
+                    break;
+                }
+                case I2C_HDMI_COMMAND_READ_VERSION4: 
+                {
+                    responseByte = 0x04;
+                    break;
+                }
+                default: responseByte = 0xFF; break;
             }
             
             currentState = STATE_COMMAND_RECEIVED;
-            // DON'T arm transmit here - wait for repeated START + READ
         }
     }
     else if(currentState == STATE_WAIT_WRITE_DATA)
@@ -126,8 +192,45 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
         // Data byte received for write command
         debug_ring_log("SMBus: RxData cmd=0x%02X data=0x%02X\r\n", commandByte, dataByte);
         
-        // Process write command 0x04 here
-        // TODO: Add your handler for command 0x04 with dataByte
+        switch(commandByte)
+        {
+            case I2C_HDMI_COMMAND_WRITE_STORE: 
+            {
+                uint16_t settings_size = sizeof(SMBusSettings);
+                uint16_t settings_offset = (bank << 8) | index;
+                if (settings_offset >= settings_size)
+                {
+                    break;
+                }
+                uint8_t *scratch_settings_data = (uint8_t*)&scratchSettings;
+                scratch_settings_data[settings_offset] = dataByte;
+                index = (index + 1) & 0xff; // We could increment bank on overflow but not needed at moment
+                break;
+            }
+            case I2C_HDMI_COMMAND_WRITE_BANK: 
+            {
+                bank = dataByte; 
+                break;
+            }
+            case I2C_HDMI_COMMAND_WRITE_INDEX:
+            {
+                 index = dataByte; 
+                 break;
+            }
+            case I2C_HDMI_COMMAND_WRITE_APPLY: 
+            {
+                if (dataByte == 0x01)
+                {
+                    memcpy(&settings, &scratchSettings, sizeof(SMBusSettings));
+                    debug_ring_log("SMBus: applied settings...\r\n");
+                    debug_ring_log("SMBus: encoder=0x%02X\r\n", settings.encoder);
+                    debug_ring_log("SMBus: region=0x%02X\r\n", settings.region);
+                    debug_ring_log("SMBus: mode=0x%04X\r\n", settings.mode);
+                    debug_ring_log("SMBus: title=0x%04X\r\n", settings.title);
+                }
+                break;
+            }
+        }
         
         currentState = STATE_IDLE;
     }

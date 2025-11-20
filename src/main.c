@@ -250,8 +250,6 @@ uint8_t init_adv_encoder_specific() {
 }
 
 uint8_t set_video_mode_bios(const uint32_t mode, const video_region region) {
-    video_region region = (mode & 0x0000FF00) >> 8;
-
     // 480i  0x00000000
     // 480p  0x00080000
     // 720p  0x00020000

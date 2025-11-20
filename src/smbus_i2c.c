@@ -337,7 +337,7 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                     if (dataByte == 0x01)
                     {
                         memcpy(&settings, &scratchSettings, sizeof(SMBusSettings));
-                        debug_ring_log("SMBus: applied settings with encoder %02X\r\n", settings.encoder);
+                        //debug_ring_log("SMBus: encoder=%02X region=%02X titleid=%08X mode=%08X\r\n", settings.encoder, settings.region, settings.title, settings.mode);
                     }
                     break;
                 }

@@ -202,86 +202,85 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
             // Command byte received
             currentCommand = commandByte;
             debug_ring_log("SMBus: RxCmd=0x%02X\r\n", commandByte);
+
+            // Read command - prepare response
+            switch(commandByte)
+            {
+                case I2C_HDMI_COMMAND_READ_STORE: 
+                {
+                    uint16_t settings_size = sizeof(SMBusSettings);
+                    uint16_t settings_offset = (store_bank << 8) | store_index;
+                    if (settings_offset >= settings_size)
+                    {
+                        break;
+                    }
+                    uint8_t *settings_data = (uint8_t*)&settings;
+                    responseByte = settings_data[settings_offset];
+                    store_index++;
+                    if (store_index > 0xff)
+                    {
+                        store_index = 0;
+                        store_bank++;
+                    }
+                    break;
+                }
+                case I2C_HDMI_COMMAND_READ_VERSION1: 
+                {
+                    responseByte = 0x01; 
+                    break;
+                }
+                case I2C_HDMI_COMMAND_READ_VERSION2: 
+                {
+                    responseByte = 0x02; 
+                    break;
+                }
+                case I2C_HDMI_COMMAND_READ_VERSION3: 
+                {
+                    responseByte = 0x03;
+                    break;
+                }
+                case I2C_HDMI_COMMAND_READ_VERSION4: 
+                {
+                    responseByte = 0x04;
+                    break;
+                }
+                default: 
+                {
+                    responseByte = 0xFF; 
+                    break;
+                }
+            }
             
-            // Check if this is a write command (MSB set)
-            if((commandByte & I2C_WRITE_BIT) == I2C_WRITE_BIT)
+
+            if ((currentCommand & I2C_WRITE_BIT) == I2C_WRITE_BIT)
             {
                 // Write command - receive data byte
-                debug_ring_log("SMBus: WriteCmd, receiving data\r\n");
+                debug_ring_log("SMBus: RxCmd, receiving data\r\n");
                 state |= SMBUS_SMS_RECEIVE;
                 HAL_I2C_Slave_Seq_Receive_IT(hi2c, &dataByte, 1, I2C_NEXT_FRAME);
             }
             else
             {
-                // Read command - prepare response
-                switch(commandByte)
-                {
-                    case I2C_HDMI_COMMAND_READ_STORE: 
-                    {
-                        uint16_t settings_size = sizeof(SMBusSettings);
-                        uint16_t settings_offset = (store_bank << 8) | store_index;
-                        if (settings_offset >= settings_size)
-                        {
-                            break;
-                        }
-                        uint8_t *settings_data = (uint8_t*)&settings;
-                        responseByte = settings_data[settings_offset];
-                        store_index++;
-                        if (store_index > 0xff)
-                        {
-                            store_index = 0;
-                            store_bank++;
-                        }
-                        break;
-                    }
-                    case I2C_HDMI_COMMAND_READ_VERSION1: 
-                    {
-                        responseByte = 0x01; 
-                        break;
-                    }
-                    case I2C_HDMI_COMMAND_READ_VERSION2: 
-                    {
-                        responseByte = 0x02; 
-                        break;
-                    }
-                    case I2C_HDMI_COMMAND_READ_VERSION3: 
-                    {
-                        responseByte = 0x03;
-                        break;
-                    }
-                    case I2C_HDMI_COMMAND_READ_VERSION4: 
-                    {
-                        responseByte = 0x04;
-                        break;
-                    }
-                    default: 
-                        responseByte = 0xFF; 
-                        currentCommand = -1;  // Invalid command
-                        break;
-                }
-                
-                if(currentCommand != -1)
-                {
-                    // Release the SCL stretch
-                    LL_I2C_SetTransferSize(hi2c->Instance, 1);
-                }
-                else
-                {
-                    // Invalid command, NACK
-                    state |= SMBUS_SMS_IGNORED;
-                    __HAL_I2C_GENERATE_NACK(hi2c);
-                    if (LL_I2C_IsActiveFlag_TCR(hi2c->Instance))
-                    {
-                        LL_I2C_SetTransferSize(hi2c->Instance, 1);
-                    }
-                }
+                // Release the SCL stretch
+                debug_ring_log("SMBus: RxCmd, release strech\r\n");
+                LL_I2C_SetTransferSize(hi2c->Instance, 1);
             }
+            
         }
         else
         {
-            // Data byte received - will be processed in ListenCpltCallback
-            debug_ring_log("SMBus: RxData cmd=0x%02X data=0x%02X\r\n", currentCommand, dataByte);
-            state &= ~SMBUS_SMS_RECEIVE;
+            // Block Write, get the size
+            if (state & SMBUS_SMS_PROCESSING)
+            {
+                                debug_ring_log("SMBus:Block Write, get the size\r\n");
+                state &= ~(SMBUS_SMS_PROCESSING | SMBUS_SMS_RECEIVE);
+                state |= SMBUS_SMS_RECEIVE;
+                HAL_I2C_Slave_Seq_Receive_IT(hi2c, &dataByte, 1, I2C_LAST_FRAME);
+            }
+            else
+            {
+                state &= ~SMBUS_SMS_RECEIVE;
+            }
         }
     }
 }

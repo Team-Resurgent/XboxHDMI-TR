@@ -34,6 +34,8 @@ int main(void)
     // TODO Allow user to force any of the 3 encoders
 #ifdef XCALIBUR
     xb_encoder = ENCODER_XCALIBUR;
+#elif FOCUS
+    xb_encoder = ENCODER_FOCUS;
 #else
     xb_encoder = ENCODER_CONEXANT;
 #endif

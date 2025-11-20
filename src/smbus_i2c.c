@@ -257,7 +257,7 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
                 // Write command - receive data byte
                 debug_ring_log("SMBus: RxCmd, receiving data\r\n");
                 state |= SMBUS_SMS_RECEIVE;
-                HAL_I2C_Slave_Seq_Receive_IT(hi2c, &dataByte, 1, I2C_NEXT_FRAME);
+                HAL_I2C_Slave_Seq_Receive_IT(hi2c, &dataByte, 1, I2C_LAST_FRAME);
             }
             else
             {

@@ -250,15 +250,23 @@ uint8_t init_adv_encoder_specific() {
 }
 
 uint8_t set_video_mode_bios(const uint32_t mode, const video_region region) {
+    video_region region = (mode & 0x0000FF00) >> 8;
+
+    // 480i  0x00000000
+    // 480p  0x00080000
+    // 720p  0x00020000
+    // 1080i 0x00040000
+
     // TODO actually process the video modes
+
+    bool widescreen = mode & 0x00010000;
+    bool interlaced = mode & 0x00200000;
+
     video_setting vs;
     vs.delay_hs = 259;
     vs.delay_vs = 25;
     vs.active_w = 1280;
     vs.active_h = 720;
-
-    bool widescreen = true;
-    bool interlaced = false;
 
     return set_adv_video_mode(&vs, widescreen, interlaced);
 }

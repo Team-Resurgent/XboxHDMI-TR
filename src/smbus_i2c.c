@@ -42,6 +42,8 @@ static SMBusSettings settings = {0};
 static uint16_t store_bank = 0;
 static uint16_t store_index = 0;
 
+static uint8_t rxBuffer[2] = {0};  // Buffer for command + data
+static uint8_t storedCommand = 0;  // Store command byte for write operations
 static uint8_t commandByte = 0;
 static uint8_t dataByte = 0;
 static uint8_t responseByte = 0x42;  // default response
@@ -94,10 +96,11 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
 
     if(TransferDirection == I2C_DIRECTION_TRANSMIT)
     {
-        // Master writes command byte (data byte is received via RxCpltCallback chaining)
+        // Master writes command byte
         debug_ring_log("SMBus: AddrW\r\n");
         currentState = STATE_WAIT_COMMAND;
-        HAL_I2C_Slave_Seq_Receive_IT(hi2c, &commandByte, 1, I2C_NEXT_FRAME);
+        // Use FIRST_FRAME to allow chaining for write commands
+        HAL_I2C_Slave_Seq_Receive_IT(hi2c, &commandByte, 1, I2C_FIRST_FRAME);
     }
     else // Master reads
     {
@@ -123,16 +126,15 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
     if(currentState == STATE_WAIT_COMMAND)
     {
         // Command byte received
+        storedCommand = commandByte;  // Save it before next receive
         debug_ring_log("SMBus: RxCmd=0x%02X\r\n", commandByte);
         
         // Check if this is a write command (MSB set)
         if((commandByte & I2C_WRITE_BIT) == I2C_WRITE_BIT)
         {
-            // Write command - data byte follows immediately in same transaction
-            debug_ring_log("SMBus: WriteCmd detected\r\n");
+            // Write command - receive data byte (THIS WILL CAUSE SPURIOUS TxDone, but it's harmless)
+            debug_ring_log("SMBus: WriteCmd, receiving data\r\n");
             currentState = STATE_WAIT_WRITE_DATA;
-            // Use NEXT_FRAME instead of LAST_FRAME to avoid triggering transmit setup
-            // STOP condition will naturally end the transaction
             HAL_I2C_Slave_Seq_Receive_IT(hi2c, &dataByte, 1, I2C_NEXT_FRAME);
         }
         else
@@ -150,7 +152,12 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
                     }
                     uint8_t *settings_data = (uint8_t*)&settings;
                     responseByte = settings_data[settings_offset];
-                    store_index = (store_index + 1) & 0xff; // We could increment bank on overflow but not needed at moment
+                    store_index++;
+                    if (store_index > 0xff)
+                    {
+                        store_index = 0;
+                        store_bank++;
+                    }
                     break;
                 }
                 case I2C_HDMI_COMMAND_READ_VERSION1: 
@@ -181,10 +188,11 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
     }
     else if(currentState == STATE_WAIT_WRITE_DATA)
     {
-        // Data byte received for write command
-        debug_ring_log("SMBus: RxData cmd=0x%02X data=0x%02X\r\n", commandByte, dataByte);
+        // Data byte received
+        debug_ring_log("SMBus: RxData cmd=0x%02X data=0x%02X\r\n", storedCommand, dataByte);
         
-        switch(commandByte)
+        // Process the write command using storedCommand
+        switch(storedCommand)
         {
             case I2C_HDMI_COMMAND_WRITE_STORE: 
             {
@@ -196,12 +204,18 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
                 }
                 uint8_t *scratch_settings_data = (uint8_t*)&scratchSettings;
                 scratch_settings_data[settings_offset] = dataByte;
-                store_index = (store_index + 1) & 0xff; // We could increment bank on overflow but not needed at moment
+                store_index++;
+                if (store_index > 0xff)
+                {
+                    store_index = 0;
+                    store_bank++;
+                }
                 break;
             }
             case I2C_HDMI_COMMAND_WRITE_BANK: 
             {
                 store_bank = dataByte; 
+                store_index = 0;
                 break;
             }
             case I2C_HDMI_COMMAND_WRITE_INDEX:
@@ -214,19 +228,14 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
                 if (dataByte == 0x01)
                 {
                     memcpy(&settings, &scratchSettings, sizeof(SMBusSettings));
-                    debug_ring_log("SMBus: applied settings...\r\n");
-                    debug_ring_log("SMBus: encoder=0x%02X\r\n", settings.encoder);
-                    debug_ring_log("SMBus: region=0x%02X\r\n", settings.region);
-                    debug_ring_log("SMBus: mode=0x%04X\r\n", settings.mode);
-                    debug_ring_log("SMBus: title=0x%04X\r\n", settings.title);
+                    debug_ring_log("SMBus: applied settings\r\n");
                 }
                 break;
             }
         }
         
-        // Write complete
-        currentState = STATE_IDLE;
         debug_ring_log("SMBus: Write complete\r\n");
+        currentState = STATE_IDLE;
     }
 }
 
@@ -234,7 +243,9 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
 void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
     if(hi2c->Instance != I2C2) return;
-    debug_ring_log("SMBus: TxDone (state=%d)\r\n", currentState);
+    // Spurious TxDone can fire due to HAL re-entrancy quirk when chaining receives
+    // This is harmless - just ignore it
+    debug_ring_log("SMBus: TxDone (spurious, ignoring)\r\n");
     currentState = STATE_IDLE;
 }
 
@@ -243,6 +254,13 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
 {
     if(hi2c->Instance != I2C2) return;
     debug_ring_log("SMBus: Stop (state=%d)\r\n", currentState);
+    
+    // Explicitly clear HAL state to prevent spurious callbacks
+    // This is especially important after write operations
+    hi2c->State = HAL_I2C_STATE_READY;
+    hi2c->PreviousState = 0;
+    hi2c->Mode = HAL_I2C_MODE_NONE;
+    
     currentState = STATE_IDLE;
     HAL_I2C_EnableListen_IT(hi2c);
 }

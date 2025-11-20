@@ -19,12 +19,14 @@
 #define I2C_HDMI_COMMAND_WRITE_INDEX 130
 #define I2C_HDMI_COMMAND_WRITE_APPLY 131
 
-typedef enum {
-    STATE_IDLE = 0,
-    STATE_WAIT_COMMAND,
-    STATE_COMMAND_RECEIVED,
-    STATE_WAIT_WRITE_DATA
-} SMBusState;
+// State flags (bit flags like reference)
+#define SMBUS_SMS_NONE           ((uint32_t)0x00000000)  /*!< Uninitialized stack */
+#define SMBUS_SMS_READY          ((uint32_t)0x00000001)  /*!< No operation ongoing */
+#define SMBUS_SMS_TRANSMIT       ((uint32_t)0x00000002)  /*!< State of writing data to the bus */
+#define SMBUS_SMS_RECEIVE        ((uint32_t)0x00000004)  /*!< State of receiving data on the bus */
+#define SMBUS_SMS_PROCESSING     ((uint32_t)0x00000008)  /*!< Processing block (variable length transmissions) */
+#define SMBUS_SMS_RESPONSE_READY ((uint32_t)0x00000010)  /*!< Slave has reply ready for transmission */
+#define SMBUS_SMS_IGNORED        ((uint32_t)0x00000020)  /*!< The current command is not intended for this slave, ignore it */
 
 typedef struct
 {
@@ -36,14 +38,13 @@ typedef struct
 
 
 static I2C_HandleTypeDef hi2c2;
-static SMBusState currentState = STATE_IDLE;
+static uint32_t state = SMBUS_SMS_READY;
 static SMBusSettings scratchSettings = {0};
 static SMBusSettings settings = {0};
 static uint16_t store_bank = 0;
 static uint16_t store_index = 0;
 
-static uint8_t rxBuffer[2] = {0};  // Buffer for command + data
-static uint8_t storedCommand = 0;  // Store command byte for write operations
+static int currentCommand = -1;  // -1 means no command, otherwise stores command byte
 static uint8_t commandByte = 0;
 static uint8_t dataByte = 0;
 static uint8_t responseByte = 0x42;  // default response
@@ -79,13 +80,26 @@ void smbus_i2c_init(void)
         while(1);
     }
 
+    if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+    {
+        debug_log("SMBUS I2C config analog filter failed\n");
+        while(1);
+    }
+
+    if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
+    {
+        debug_log("SMBUS I2C config digital filter failed\n");
+        while(1);
+    }
+
     HAL_NVIC_SetPriority(I2C2_IRQn, 1, 0);
     HAL_NVIC_EnableIRQ(I2C2_IRQn);
 
     // Start listening for master
     HAL_I2C_EnableListen_IT(&hi2c2);
 
-    currentState = STATE_IDLE;
+    state = SMBUS_SMS_READY;
+    currentCommand = -1;
     debug_log("SMBus: I2C Slave 0x%02X ready\r\n", I2C_SLAVE_ADDR);
 }
 
@@ -94,26 +108,74 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
 {
     if(hi2c->Instance != I2C2) return;
 
-    if(TransferDirection == I2C_DIRECTION_TRANSMIT)
+    if(TransferDirection == I2C_DIRECTION_RECEIVE)
     {
-        // Master writes command byte
-        debug_ring_log("SMBus: AddrW\r\n");
-        currentState = STATE_WAIT_COMMAND;
-        // Use FIRST_FRAME to allow chaining for write commands
-        HAL_I2C_Slave_Seq_Receive_IT(hi2c, &commandByte, 1, I2C_FIRST_FRAME);
-    }
-    else // Master reads
-    {
-        // Only transmit if command was received
-        if(currentState == STATE_COMMAND_RECEIVED)
+        // Master reads (slave transmits)
+        if ((state & SMBUS_SMS_IGNORED) == SMBUS_SMS_IGNORED)
         {
-            debug_ring_log("SMBus: AddrR cmd=0x%02X resp=0x%02X\r\n", commandByte, responseByte);
-            HAL_I2C_Slave_Seq_Transmit_IT(hi2c, &responseByte, 1, I2C_LAST_FRAME);
+            // Best way not to block the line
+            LL_I2C_TransmitData8(hi2c->Instance, 0xFFU);
+            if (LL_I2C_IsActiveFlag_TCR(hi2c->Instance))
+            {
+                LL_I2C_SetTransferSize(hi2c->Instance, 1);
+            }
+            __HAL_I2C_GENERATE_NACK(hi2c);
+            LL_I2C_ClearFlag_ADDR(hi2c->Instance);
+            state &= ~SMBUS_SMS_IGNORED;
+            HAL_I2C_EnableListen_IT(hi2c);
         }
         else
         {
-            debug_ring_log("SMBus: AddrR NO_CMD\r\n");
-            __HAL_I2C_GENERATE_NACK(hi2c); // NACK if no command
+            // If we don't have a response yet, try to get one
+            if (!(state & (SMBUS_SMS_READY | SMBUS_SMS_RESPONSE_READY)) && currentCommand != -1)
+            {
+                // Prepare response if we have a command
+                if (currentCommand != -1)
+                {
+                    // Response already prepared in SlaveRxCpltCallback
+                    state |= SMBUS_SMS_RESPONSE_READY;
+                }
+                else
+                {
+                    state |= SMBUS_SMS_IGNORED;
+                    __HAL_I2C_GENERATE_NACK(hi2c);
+                    LL_I2C_ClearFlag_ADDR(hi2c->Instance);
+                    HAL_I2C_EnableListen_IT(hi2c);
+                }
+            }
+
+            if (state & SMBUS_SMS_RESPONSE_READY)
+            {
+                state |= SMBUS_SMS_TRANSMIT;
+                // Disable SBC, cannot NACK on TX
+                LL_I2C_DisableSlaveByteControl(hi2c->Instance);
+                debug_ring_log("SMBus: AddrR cmd=0x%02X resp=0x%02X\r\n", currentCommand, responseByte);
+                HAL_I2C_Slave_Seq_Transmit_IT(hi2c, &responseByte, 1, I2C_LAST_FRAME);
+            }
+            else
+            {
+                debug_ring_log("SMBus: AddrR NO_CMD\r\n");
+                __HAL_I2C_GENERATE_NACK(hi2c); // NACK if no command
+                LL_I2C_ClearFlag_ADDR(hi2c->Instance);
+                HAL_I2C_EnableListen_IT(hi2c);
+            }
+        }
+    }
+    else
+    {
+        // Master writes (slave receives) - new command
+        debug_ring_log("SMBus: AddrW\r\n");
+        state &= ~SMBUS_SMS_IGNORED;
+
+        if (state & SMBUS_SMS_READY)
+        {
+            state &= ~SMBUS_SMS_READY;
+            state |= SMBUS_SMS_RECEIVE;
+            currentCommand = -1;
+            // Enable SBC so we can NACK
+            LL_I2C_EnableSlaveByteControl(hi2c->Instance);
+            // Use FIRST_FRAME to allow chaining for write commands
+            HAL_I2C_Slave_Seq_Receive_IT(hi2c, &commandByte, 1, I2C_FIRST_FRAME);
         }
     }
 }
@@ -123,26 +185,133 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
     if(hi2c->Instance != I2C2) return;
 
-    if(currentState == STATE_WAIT_COMMAND)
+    if (state & SMBUS_SMS_IGNORED)
     {
-        // Command byte received
-        storedCommand = commandByte;  // Save it before next receive
-        debug_ring_log("SMBus: RxCmd=0x%02X\r\n", commandByte);
-        
-        // Check if this is a write command (MSB set)
-        if((commandByte & I2C_WRITE_BIT) == I2C_WRITE_BIT)
+        __HAL_I2C_GENERATE_NACK(hi2c);
+        if (LL_I2C_IsActiveFlag_TCR(hi2c->Instance))
         {
-            // Write command - receive data byte (THIS WILL CAUSE SPURIOUS TxDone, but it's harmless)
-            debug_ring_log("SMBus: WriteCmd, receiving data\r\n");
-            currentState = STATE_WAIT_WRITE_DATA;
-            HAL_I2C_Slave_Seq_Receive_IT(hi2c, &dataByte, 1, I2C_NEXT_FRAME);
+            LL_I2C_SetTransferSize(hi2c->Instance, 1);
+        }
+    }
+    else
+    {
+        if (currentCommand == -1)
+        {
+            state &= ~SMBUS_SMS_RECEIVE;
+
+            // Command byte received
+            currentCommand = commandByte;
+            debug_ring_log("SMBus: RxCmd=0x%02X\r\n", commandByte);
+            
+            // Check if this is a write command (MSB set)
+            if((commandByte & I2C_WRITE_BIT) == I2C_WRITE_BIT)
+            {
+                // Write command - receive data byte
+                debug_ring_log("SMBus: WriteCmd, receiving data\r\n");
+                state |= SMBUS_SMS_RECEIVE;
+                HAL_I2C_Slave_Seq_Receive_IT(hi2c, &dataByte, 1, I2C_NEXT_FRAME);
+            }
+            else
+            {
+                // Read command - prepare response
+                switch(commandByte)
+                {
+                    case I2C_HDMI_COMMAND_READ_STORE: 
+                    {
+                        uint16_t settings_size = sizeof(SMBusSettings);
+                        uint16_t settings_offset = (store_bank << 8) | store_index;
+                        if (settings_offset >= settings_size)
+                        {
+                            break;
+                        }
+                        uint8_t *settings_data = (uint8_t*)&settings;
+                        responseByte = settings_data[settings_offset];
+                        store_index++;
+                        if (store_index > 0xff)
+                        {
+                            store_index = 0;
+                            store_bank++;
+                        }
+                        break;
+                    }
+                    case I2C_HDMI_COMMAND_READ_VERSION1: 
+                    {
+                        responseByte = 0x01; 
+                        break;
+                    }
+                    case I2C_HDMI_COMMAND_READ_VERSION2: 
+                    {
+                        responseByte = 0x02; 
+                        break;
+                    }
+                    case I2C_HDMI_COMMAND_READ_VERSION3: 
+                    {
+                        responseByte = 0x03;
+                        break;
+                    }
+                    case I2C_HDMI_COMMAND_READ_VERSION4: 
+                    {
+                        responseByte = 0x04;
+                        break;
+                    }
+                    default: 
+                        responseByte = 0xFF; 
+                        currentCommand = -1;  // Invalid command
+                        break;
+                }
+                
+                if(currentCommand != -1)
+                {
+                    // Release the SCL stretch
+                    LL_I2C_SetTransferSize(hi2c->Instance, 1);
+                }
+                else
+                {
+                    // Invalid command, NACK
+                    state |= SMBUS_SMS_IGNORED;
+                    __HAL_I2C_GENERATE_NACK(hi2c);
+                    if (LL_I2C_IsActiveFlag_TCR(hi2c->Instance))
+                    {
+                        LL_I2C_SetTransferSize(hi2c->Instance, 1);
+                    }
+                }
+            }
         }
         else
         {
-            // Read command - prepare response
-            switch(commandByte)
+            // Data byte received - will be processed in ListenCpltCallback
+            debug_ring_log("SMBus: RxData cmd=0x%02X data=0x%02X\r\n", currentCommand, dataByte);
+            state &= ~SMBUS_SMS_RECEIVE;
+        }
+    }
+}
+
+// -------------------- Transmit Complete Callback --------------------
+void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+    if(hi2c->Instance != I2C2) return;
+    debug_ring_log("SMBus: TxDone\r\n");
+    state &= ~SMBUS_SMS_TRANSMIT;
+}
+
+// -------------------- Listen Complete Callback --------------------
+void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+    if(hi2c->Instance != I2C2) return;
+    debug_ring_log("SMBus: Stop (state=0x%02X)\r\n", state);
+    
+    // Process the write if we have a write command and all data was received
+    if(currentCommand != -1 && !(state & SMBUS_SMS_RESPONSE_READY))
+    {
+        // Size of bytes received must match expected size
+        // For single-byte writes, XferCount should be 0 (all bytes received)
+        if(hi2c->XferCount == 0)
+        {
+            // Process the write command
+            debug_ring_log("SMBus: Processing write cmd=0x%02X data=0x%02X\r\n", currentCommand, dataByte);
+            switch(currentCommand)
             {
-                case I2C_HDMI_COMMAND_READ_STORE: 
+                case I2C_HDMI_COMMAND_WRITE_STORE: 
                 {
                     uint16_t settings_size = sizeof(SMBusSettings);
                     uint16_t settings_offset = (store_bank << 8) | store_index;
@@ -150,8 +319,8 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
                     {
                         break;
                     }
-                    uint8_t *settings_data = (uint8_t*)&settings;
-                    responseByte = settings_data[settings_offset];
+                    uint8_t *scratch_settings_data = (uint8_t*)&scratchSettings;
+                    scratch_settings_data[settings_offset] = dataByte;
                     store_index++;
                     if (store_index > 0xff)
                     {
@@ -160,108 +329,35 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
                     }
                     break;
                 }
-                case I2C_HDMI_COMMAND_READ_VERSION1: 
+                case I2C_HDMI_COMMAND_WRITE_BANK: 
                 {
-                    responseByte = 0x01; 
-                    break;
-                }
-                case I2C_HDMI_COMMAND_READ_VERSION2: 
-                {
-                    responseByte = 0x02; 
-                    break;
-                }
-                case I2C_HDMI_COMMAND_READ_VERSION3: 
-                {
-                    responseByte = 0x03;
-                    break;
-                }
-                case I2C_HDMI_COMMAND_READ_VERSION4: 
-                {
-                    responseByte = 0x04;
-                    break;
-                }
-                default: responseByte = 0xFF; break;
-            }
-            
-            currentState = STATE_COMMAND_RECEIVED;
-        }
-    }
-    else if(currentState == STATE_WAIT_WRITE_DATA)
-    {
-        // Data byte received
-        debug_ring_log("SMBus: RxData cmd=0x%02X data=0x%02X\r\n", storedCommand, dataByte);
-        
-        // Process the write command using storedCommand
-        switch(storedCommand)
-        {
-            case I2C_HDMI_COMMAND_WRITE_STORE: 
-            {
-                uint16_t settings_size = sizeof(SMBusSettings);
-                uint16_t settings_offset = (store_bank << 8) | store_index;
-                if (settings_offset >= settings_size)
-                {
-                    break;
-                }
-                uint8_t *scratch_settings_data = (uint8_t*)&scratchSettings;
-                scratch_settings_data[settings_offset] = dataByte;
-                store_index++;
-                if (store_index > 0xff)
-                {
+                    store_bank = dataByte; 
                     store_index = 0;
-                    store_bank++;
+                    break;
                 }
-                break;
-            }
-            case I2C_HDMI_COMMAND_WRITE_BANK: 
-            {
-                store_bank = dataByte; 
-                store_index = 0;
-                break;
-            }
-            case I2C_HDMI_COMMAND_WRITE_INDEX:
-            {
-                 store_index = dataByte; 
-                 break;
-            }
-            case I2C_HDMI_COMMAND_WRITE_APPLY: 
-            {
-                if (dataByte == 0x01)
+                case I2C_HDMI_COMMAND_WRITE_INDEX:
                 {
-                    memcpy(&settings, &scratchSettings, sizeof(SMBusSettings));
-                    debug_ring_log("SMBus: applied settings\r\n");
+                     store_index = dataByte; 
+                     break;
                 }
-                break;
+                case I2C_HDMI_COMMAND_WRITE_APPLY: 
+                {
+                    if (dataByte == 0x01)
+                    {
+                        memcpy(&settings, &scratchSettings, sizeof(SMBusSettings));
+                        debug_ring_log("SMBus: applied settings\r\n");
+                    }
+                    break;
+                }
             }
         }
-        
-        debug_ring_log("SMBus: Write complete\r\n");
-        currentState = STATE_IDLE;
     }
-}
-
-// -------------------- Transmit Complete Callback --------------------
-void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c)
-{
-    if(hi2c->Instance != I2C2) return;
-    // Spurious TxDone can fire due to HAL re-entrancy quirk when chaining receives
-    // This is harmless - just ignore it
-    debug_ring_log("SMBus: TxDone (spurious, ignoring)\r\n");
-    currentState = STATE_IDLE;
-}
-
-// -------------------- Listen Complete Callback --------------------
-void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
-{
-    if(hi2c->Instance != I2C2) return;
-    debug_ring_log("SMBus: Stop (state=%d)\r\n", currentState);
     
-    // Explicitly clear HAL state to prevent spurious callbacks
-    // This is especially important after write operations
-    hi2c->State = HAL_I2C_STATE_READY;
-    hi2c->PreviousState = 0;
-    hi2c->Mode = HAL_I2C_MODE_NONE;
+    // Reset state
+    state = SMBUS_SMS_READY;
+    currentCommand = -1;
     
-    currentState = STATE_IDLE;
+    // Do it all again
     HAL_I2C_EnableListen_IT(hi2c);
 }
 
@@ -272,28 +368,62 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
 
     uint32_t err = hi2c->ErrorCode;
     
-    // Log errors (AF/NACK is expected at end of read)
-    if(err == HAL_I2C_ERROR_AF)
+    if (err & (HAL_I2C_ERROR_BERR | HAL_I2C_ERROR_TIMEOUT))
     {
+        // Critical error - reset the stack
+        debug_ring_log("SMBus: Critical ERR=0x%02X\r\n", (err & 0xFF));
+        if(state & (SMBUS_SMS_TRANSMIT | SMBUS_SMS_RECEIVE | SMBUS_SMS_PROCESSING))
+        {
+            __HAL_I2C_DISABLE(hi2c);
+            while (LL_I2C_IsEnabled(hi2c->Instance)) {}
+            __HAL_I2C_ENABLE(hi2c);
+            if(hi2c->State != HAL_I2C_STATE_READY)
+            {
+                HAL_I2C_DeInit(hi2c);
+                HAL_I2C_Init(hi2c);
+                HAL_I2C_EnableListen_IT(hi2c);
+            }
+        }
+        state = SMBUS_SMS_READY;
+        currentCommand = -1;
+    }
+    else if (err & HAL_I2C_ERROR_ARLO)
+    {
+        // Arbitration lost - signal error
+        debug_ring_log("SMBus: ARLO\r\n");
+        state = SMBUS_SMS_READY;
+        currentCommand = -1;
+        HAL_I2C_EnableListen_IT(hi2c);
+    }
+    else if (err & HAL_I2C_ERROR_AF)
+    {
+        // NACK - expected at end of read, handle gracefully
         debug_ring_log("SMBus: NACK\r\n");
+        hi2c->PreviousState = hi2c->State;
+        hi2c->State = HAL_I2C_STATE_READY;
+        __HAL_UNLOCK(hi2c);
+        state = SMBUS_SMS_READY;
+        currentCommand = -1;
+        HAL_I2C_EnableListen_IT(hi2c);
     }
     else if(err != HAL_I2C_ERROR_NONE)
     {
         debug_ring_log("SMBus: ERR=0x%02X\r\n", (err & 0xFF));
+        state = SMBUS_SMS_READY;
+        currentCommand = -1;
+        HAL_I2C_EnableListen_IT(hi2c);
     }
-
-    // Recover from errors
-    hi2c->ErrorCode = HAL_I2C_ERROR_NONE;
-    hi2c->State = HAL_I2C_STATE_READY;
-    __HAL_UNLOCK(hi2c);
-    currentState = STATE_IDLE;
-
-    HAL_I2C_EnableListen_IT(hi2c);
 }
 
 // -------------------- IRQ Handler --------------------
 void I2C2_IRQHandler(void)
 {
-    HAL_I2C_EV_IRQHandler(&hi2c2);
-    HAL_I2C_ER_IRQHandler(&hi2c2);
+    if (hi2c2.Instance->ISR & (I2C_FLAG_BERR | I2C_FLAG_ARLO | I2C_FLAG_OVR | I2C_FLAG_TIMEOUT | I2C_FLAG_ALERT | I2C_FLAG_PECERR))
+    {
+        HAL_I2C_ER_IRQHandler(&hi2c2);
+    }
+    else
+    {
+        HAL_I2C_EV_IRQHandler(&hi2c2);
+    }
 }

@@ -175,7 +175,7 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
             // Enable SBC so we can NACK
             LL_I2C_EnableSlaveByteControl(hi2c->Instance);
             // Use FIRST_FRAME to allow chaining for write commands
-            HAL_I2C_Slave_Seq_Receive_IT(hi2c, &commandByte, 1, I2C_FIRST_FRAME);
+            HAL_I2C_Slave_Seq_Receive_IT(hi2c, &commandByte, 1, I2C_NEXT_FRAME);
         }
     }
 }

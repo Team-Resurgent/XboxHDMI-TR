@@ -1,11 +1,11 @@
 #ifndef __XBOX_H__
 #define __XBOX_H__
 
-enum xbox_encoder {
-    ENCODER_CONEXANT,
-    ENCODER_FOCUS,
-    ENCODER_XCALIBUR
-};
+typedef enum xbox_encoder {
+    ENCODER_CONEXANT = 0x8A,
+    ENCODER_FOCUS = 0xD4,
+    ENCODER_XCALIBUR = 0xE0
+} xbox_encoder;
 
 typedef struct video_setting {
     uint16_t delay_hs;
@@ -17,10 +17,10 @@ typedef struct video_setting {
 // https://github.com/XboxDev/nxdk/blob/master/lib/hal/video.c
 
 typedef enum {
-    VIDEO_REGION_NTSCM,
-    VIDEO_REGION_NTSCJ,
-    VIDEO_REGION_PAL
-} video_regions;
+    VIDEO_REGION_NTSCM = 0x00000100,
+    VIDEO_REGION_NTSCJ = 0x00000200,
+    VIDEO_REGION_PAL = 0x00000300
+} video_region;
 
 typedef enum {
     // NTSC North America

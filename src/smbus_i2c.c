@@ -28,16 +28,6 @@
 #define SMBUS_SMS_RESPONSE_READY ((uint32_t)0x00000010)  /*!< Slave has reply ready for transmission */
 #define SMBUS_SMS_IGNORED        ((uint32_t)0x00000020)  /*!< The current command is not intended for this slave, ignore it */
 
-#pragma pack(1)
-typedef struct
-{
-    uint8_t encoder;
-    uint8_t region;
-    uint32_t mode;
-    uint32_t titleid;
-} SMBusSettings;
-#pragma pack()
-
 static I2C_HandleTypeDef hi2c2;
 static uint32_t state = SMBUS_SMS_READY;
 static SMBusSettings scratchSettings = {0};
@@ -49,6 +39,9 @@ static int currentCommand = -1;  // -1 means no command, otherwise stores comman
 static uint8_t commandByte = 0;
 static uint8_t dataByte = 0;
 static uint8_t responseByte = 0x42;  // default response
+
+static bool video_mode_update_pending = false;
+static bool bios_tookover_control = false;
 
 // -------------------- Initialization --------------------
 void smbus_i2c_init(void)
@@ -206,7 +199,7 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
             // Read command - prepare response
             switch(commandByte)
             {
-                case I2C_HDMI_COMMAND_READ_STORE: 
+                case I2C_HDMI_COMMAND_READ_STORE:
                 {
                     uint16_t settings_size = sizeof(SMBusSettings);
                     uint16_t settings_offset = (store_bank << 8) | store_index;
@@ -224,33 +217,33 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
                     }
                     break;
                 }
-                case I2C_HDMI_COMMAND_READ_VERSION1: 
+                case I2C_HDMI_COMMAND_READ_VERSION1:
                 {
-                    responseByte = 0x01; 
+                    responseByte = 0x01;
                     break;
                 }
-                case I2C_HDMI_COMMAND_READ_VERSION2: 
+                case I2C_HDMI_COMMAND_READ_VERSION2:
                 {
-                    responseByte = 0x02; 
+                    responseByte = 0x02;
                     break;
                 }
-                case I2C_HDMI_COMMAND_READ_VERSION3: 
+                case I2C_HDMI_COMMAND_READ_VERSION3:
                 {
                     responseByte = 0x03;
                     break;
                 }
-                case I2C_HDMI_COMMAND_READ_VERSION4: 
+                case I2C_HDMI_COMMAND_READ_VERSION4:
                 {
                     responseByte = 0x04;
                     break;
                 }
-                default: 
+                default:
                 {
-                    responseByte = 0xFF; 
+                    responseByte = 0xFF;
                     break;
                 }
             }
-            
+
 
             if ((currentCommand & I2C_WRITE_BIT) == I2C_WRITE_BIT)
             {
@@ -263,7 +256,7 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
                 // Release the SCL stretch
                 LL_I2C_SetTransferSize(hi2c->Instance, 1);
             }
-            
+
         }
         else
         {
@@ -293,7 +286,7 @@ void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c)
 void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
 {
     if(hi2c->Instance != I2C2) return;
-    
+
     // Process the write if we have a write command and all data was received
     if(currentCommand != -1 && !(state & SMBUS_SMS_RESPONSE_READY))
     {
@@ -304,7 +297,7 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
             // Process the write command
             switch(currentCommand)
             {
-                case I2C_HDMI_COMMAND_WRITE_STORE: 
+                case I2C_HDMI_COMMAND_WRITE_STORE:
                 {
                     uint16_t settings_size = sizeof(SMBusSettings);
                     uint16_t settings_offset = (store_bank << 8) | store_index;
@@ -322,22 +315,25 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                     }
                     break;
                 }
-                case I2C_HDMI_COMMAND_WRITE_BANK: 
+                case I2C_HDMI_COMMAND_WRITE_BANK:
                 {
-                    store_bank = dataByte; 
+                    store_bank = dataByte;
                     store_index = 0;
                     break;
                 }
                 case I2C_HDMI_COMMAND_WRITE_INDEX:
                 {
-                     store_index = dataByte; 
+                     store_index = dataByte;
                      break;
                 }
-                case I2C_HDMI_COMMAND_WRITE_APPLY: 
+                case I2C_HDMI_COMMAND_WRITE_APPLY:
                 {
+                    bios_tookover_control = true;
+
                     if (dataByte == 0x01)
                     {
                         memcpy(&settings, &scratchSettings, sizeof(SMBusSettings));
+                        video_mode_update_pending = true;
                         //debug_ring_log("SMBus: encoder=%02X region=%02X mode=%08X title=%08X\r\n", settings.encoder, settings.region, settings.mode, settings.titleid);
                     }
                     break;
@@ -345,11 +341,11 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
             }
         }
     }
-    
+
     // Reset state
     state = SMBUS_SMS_READY;
     currentCommand = -1;
-    
+
     // Do it all again
     HAL_I2C_EnableListen_IT(hi2c);
 }
@@ -360,7 +356,7 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
     if(hi2c->Instance != I2C2) return;
 
     uint32_t err = hi2c->ErrorCode;
-    
+
     if (err & (HAL_I2C_ERROR_BERR | HAL_I2C_ERROR_TIMEOUT))
     {
         // Critical error - reset the stack
@@ -402,6 +398,22 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
         currentCommand = -1;
         HAL_I2C_EnableListen_IT(hi2c);
     }
+}
+
+bool video_mode_updated() {
+    return video_mode_update_pending;
+}
+
+void ack_video_mode_update() {
+    video_mode_update_pending = false;
+}
+
+const SMBusSettings * const getSMBusSettings() {
+    return &settings;
+}
+
+bool bios_tookover() {
+    return bios_tookover_control;
 }
 
 // -------------------- IRQ Handler --------------------

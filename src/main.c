@@ -12,18 +12,17 @@
 
 UART_HandleTypeDef huart;
 adv7511 encoder;
-enum xbox_encoder xbox_encoder;
-bool i2c_mode; // Set to true when connected to I2C
+xbox_encoder xb_encoder;
 
 uint8_t init_adv();
-uint8_t set_video_mode(uint8_t mode, bool wide, bool interlaced);
+uint8_t set_video_mode_vic(const uint8_t mode, const bool wide, const bool interlaced);
+uint8_t set_video_mode_bios(const uint32_t mode, const video_region region);
+uint8_t set_adv_video_mode(const video_setting * const vs, const bool widescreen, const bool interlaced);
 void SystemClock_Config(void);
 static void init_gpio(void);
 
 int main(void)
 {
-    i2c_mode = false;
-
     HAL_Init();
     SystemClock_Config();
 
@@ -31,10 +30,11 @@ int main(void)
     init_gpio();
     led_init();
 
+    // TODO Allow user to force any of the 3 encoders
 #ifdef XCALIBUR
-    xbox_encoder = ENCODER_XCALIBUR;
+    xb_encoder = ENCODER_XCALIBUR;
 #else
-    xbox_encoder = ENCODER_CONEXANT;
+    xb_encoder = ENCODER_CONEXANT;
 #endif
 
     uint8_t error = init_adv();
@@ -50,7 +50,8 @@ int main(void)
     uint8_t vic = 0x80;
     uint8_t pll_lock = 0;
 
-    while (!i2c_mode)
+    // We use VIC detection while the bios doesn't take control
+    while (!bios_tookover())
     {
         debug_ring_flush();
 
@@ -120,24 +121,35 @@ int main(void)
 
             if (vic == ADV7511_VIC_VGA_640x480_4_3)
             {
-                error |= set_video_mode(XBOX_VIDEO_VGA, false, false);
+                error |= set_video_mode_vic(XBOX_VIDEO_VGA, false, false);
             }
             else if (vic == ADV7511_VIC_480p_4_3 || vic == ADV7511_VIC_UNAVAILABLE)
             {
-                error |= set_video_mode(XBOX_VIDEO_480p_640, false, false);
+                error |= set_video_mode_vic(XBOX_VIDEO_480p_640, false, false);
             }
             else if (vic == ADV7511_VIC_480p_16_9)
             {
-                error |= set_video_mode(XBOX_VIDEO_480p_720, true, false);
+                error |= set_video_mode_vic(XBOX_VIDEO_480p_720, true, false);
             }
             else if (vic == ADV7511_VIC_720p_60_16_9)
             {
-                error |= set_video_mode(XBOX_VIDEO_720p, true, false);
+                error |= set_video_mode_vic(XBOX_VIDEO_720p, true, false);
             }
             else if (vic == ADV7511_VIC_1080i_60_16_9)
             {
-                error |= set_video_mode(XBOX_VIDEO_1080i, false, true);
+                error |= set_video_mode_vic(XBOX_VIDEO_1080i, false, true);
             }
+        }
+    }
+
+    // We are out of the VIC detection mode, all video modes are now set by the xbox bios
+    while(true) {
+        // TODO re init adv
+        if (video_mode_updated()) {
+            const SMBusSettings * const vid_settings = getSMBusSettings();
+            xb_encoder = vid_settings->encoder;
+            error |= set_video_mode_bios(vid_settings->mode, vid_settings->region);
+            ack_video_mode_update();
         }
     }
 }
@@ -170,7 +182,7 @@ uint8_t init_adv() {
     // Set DDR Input Edge  first half of pixel data clocking edge, Bit 1 |= 0 for falling edge, 1 for rising edge CHECK
     error |= adv7511_update_register(0x16, 0b00000010, 0b00000010); //Rising
 
-    if (xbox_encoder == ENCODER_XCALIBUR)
+    if (xb_encoder == ENCODER_XCALIBUR)
     {
         // Normal Bus Order, DDR Alignment D[35:18] (left aligned)
         error |= adv7511_update_register(0x48, 0b01100000, 0b00100000);
@@ -235,13 +247,21 @@ uint8_t init_adv() {
     return error;
 }
 
-uint8_t set_video_mode(uint8_t mode, bool widescreen, bool interlaced) {
+uint8_t set_video_mode_bios(const uint32_t mode, const video_region region) {
+    video_setting vs;
+    bool widescreen = false;
+    bool interlaced = false;
+
+    return set_adv_video_mode(&vs, widescreen, interlaced);
+}
+
+uint8_t set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced) {
     if (mode > XBOX_VIDEO_1080i) {
         return 1;
     }
 
     video_setting* vs = NULL;
-    switch (xbox_encoder) {
+    switch (xb_encoder) {
         case ENCODER_CONEXANT:
             vs = &video_settings_conexant[mode];
             break;
@@ -258,6 +278,11 @@ uint8_t set_video_mode(uint8_t mode, bool widescreen, bool interlaced) {
             return 1;
     }
 
+    debug_log("Set %d mode, widescree %s, interlaced %s\r\n", mode, widescreen ? "true" : "false", interlaced ? "true" : "false");
+    return set_adv_video_mode(vs, widescreen, interlaced);
+}
+
+inline uint8_t set_adv_video_mode(const video_setting * const vs, const bool widescreen, const bool interlaced) {
     uint8_t error = 0;
     uint8_t ddr_edge = 1;
 
@@ -275,8 +300,6 @@ uint8_t set_video_mode(uint8_t mode, bool widescreen, bool interlaced) {
         // Offset for Sync Adjustment Vsync Placement
         error |= adv7511_update_register(0xDC, 0b11100000, 0 << 5);
     }
-
-    debug_log("Set %d mode, widescree %s, interlaced %s\r\n", mode, widescreen ? "true" : "false", interlaced ? "true" : "false");
 
     error |= adv7511_update_register(0x16, 0b00000010, ddr_edge << 1);
     error |= adv7511_update_register(0x36, 0b00111111, (uint8_t)vs->delay_vs);

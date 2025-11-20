@@ -19,7 +19,8 @@ typedef struct video_setting {
 typedef enum {
     VIDEO_REGION_NTSCM = 0x00000100,
     VIDEO_REGION_NTSCJ = 0x00000200,
-    VIDEO_REGION_PAL = 0x00000300
+    VIDEO_REGION_PAL_I = 0x00000300,
+    VIDEO_REGION_PAL_M = 0x00000400
 } video_region;
 
 typedef enum {

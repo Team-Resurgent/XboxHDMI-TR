@@ -28,14 +28,15 @@
 #define SMBUS_SMS_RESPONSE_READY ((uint32_t)0x00000010)  /*!< Slave has reply ready for transmission */
 #define SMBUS_SMS_IGNORED        ((uint32_t)0x00000020)  /*!< The current command is not intended for this slave, ignore it */
 
+#pragma pack(1)
 typedef struct
 {
     uint8_t encoder;
     uint8_t region;
     uint32_t mode;
-    uint32_t title;
+    uint32_t titleid;
 } SMBusSettings;
-
+#pragma pack()
 
 static I2C_HandleTypeDef hi2c2;
 static uint32_t state = SMBUS_SMS_READY;
@@ -337,7 +338,7 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                     if (dataByte == 0x01)
                     {
                         memcpy(&settings, &scratchSettings, sizeof(SMBusSettings));
-                        //debug_ring_log("SMBus: encoder=%02X region=%02X titleid=%08X mode=%08X\r\n", settings.encoder, settings.region, settings.title, settings.mode);
+                        //debug_ring_log("SMBus: encoder=%02X region=%02X mode=%08X title=%08X\r\n", settings.encoder, settings.region, settings.mode, settings.titleid);
                     }
                     break;
                 }

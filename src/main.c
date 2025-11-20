@@ -55,23 +55,9 @@ int main(void)
     {
         debug_ring_flush();
 
-        if (error)
-        {
-            debug_log("Encountered error when setting up ADV7511\r\n");
-            error = 0;
-        }
-
-        //Check PLL status
+        // Check PLL status
         pll_lock = (adv7511_read_register(0x9E) >> 4) & 0x01;
-        if (pll_lock == 0)
-        {
-            debug_log("PLL Lock: %u\r\n", pll_lock);
-            led_status1(false);
-        }
-        else
-        {
-            led_status1(true);
-        }
+        led_status1(pll_lock);
 
         if (bios_tookover()) {
             led_status2(true);

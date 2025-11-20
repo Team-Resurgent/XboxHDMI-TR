@@ -76,6 +76,8 @@ int main(void)
         }
         else
         {
+            led_status2(false);
+
             if ((adv7511_read_register(0x3e) >> 2) != (vic & 0x0F))
             {
                 debug_log("VIC Changed!\r\n");

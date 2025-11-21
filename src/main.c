@@ -254,23 +254,51 @@ uint8_t init_adv_encoder_specific() {
 }
 
 uint8_t set_video_mode_bios(const uint32_t mode, const video_region region) {
-    // 480i  0x00000000
-    // 480p  0x00080000
-    // 720p  0x00020000
-    // 1080i 0x00040000
+    const video_setting* vs = NULL;
+    switch (xb_encoder) {
+        case ENCODER_CONEXANT:
+            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
+                if (video_settings_conexant_bios[i].mode == mode) {
+                    vs = &video_settings_conexant_bios[i].vs;
+                    break;
+                }
+            }
+            break;
 
-    // TODO actually process the video modes
+        case ENCODER_FOCUS:
+            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
+                if (video_settings_focus_bios[i].mode == mode) {
+                    vs = &video_settings_focus_bios[i].vs;
+                    break;
+                }
+            }
+            break;
 
-    bool widescreen = mode & 0x00010000;
-    bool interlaced = mode & 0x00200000;
+        case ENCODER_XCALIBUR:
+            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
+                if (video_settings_xcalibur_bios[i].mode == mode) {
+                    vs = &video_settings_xcalibur_bios[i].vs;
+                    break;
+                }
+            }
+            break;
 
-    video_setting vs;
-    vs.delay_hs = 259;
-    vs.delay_vs = 25;
-    vs.active_w = 1280;
-    vs.active_h = 720;
+        default:
+            break;
+    }
 
-    return set_adv_video_mode(&vs, widescreen, interlaced);
+    // TODO 50Hz is not applied
+
+    // We didnt find a video mode, abort change
+    if (vs == NULL) {
+        debug_log("Video mode not present %d\r\n", mode);
+        return 1;
+    }
+
+    bool widescreen = mode & XBOX_VIDEO_WIDESCREEN;
+    bool interlaced = mode & XBOX_VIDEO_INTERLACED;
+
+    return set_adv_video_mode(vs, widescreen, interlaced);
 }
 
 uint8_t set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced) {
@@ -278,7 +306,7 @@ uint8_t set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool
         return 1;
     }
 
-    video_setting* vs = NULL;
+    const video_setting* vs = NULL;
     switch (xb_encoder) {
         case ENCODER_CONEXANT:
             vs = &video_settings_conexant[mode];

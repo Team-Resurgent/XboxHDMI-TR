@@ -121,7 +121,6 @@ int main(void)
         if (encoder.interrupt)
         {
             uint8_t interrupt_register = adv7511_read_register(0x96);
-            debug_log("Interrupt occurred!\r\n");
             debug_log("interrupt_register: 0x%02x\r\n", interrupt_register);
 
             if (interrupt_register & ADV7511_INT0_HPD)
@@ -154,8 +153,8 @@ int main(void)
 uint8_t init_adv() {
     adv7511_i2c_init();
 
-    HAL_Delay(200);
-    debug_log("\r\nADV7511 Chip Revision %u\r\n", adv7511_read_register(0x00));
+    HAL_Delay(100);
+    // debug_log("\r\nADV7511 Chip Revision %u\r\n", adv7511_read_register(0x00));
 
     uint8_t error = 0;
 

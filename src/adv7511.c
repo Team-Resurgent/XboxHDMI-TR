@@ -83,19 +83,14 @@ uint8_t adv7511_write_cec(uint8_t address, uint8_t value)
 
 uint8_t adv7511_update_register(uint8_t address, uint8_t mask, uint8_t new_value)
 {
-    uint8_t working_value, retval;
+    uint8_t working_value;
     uint8_t register_value = adv7511_read_register(address);
 
     working_value = register_value & ~mask;
     new_value &= mask;
     new_value |= working_value;
 
-    retval = adv7511_write_register(address, new_value);
-
-    debug_log("Register 0x%02x : 0x%02x -> 0x%02x\r\n",
-           address, register_value, adv7511_read_register(address));
-
-    return retval;
+    return adv7511_write_register(address, new_value);
 }
 
 uint8_t adv7511_power_up(adv7511 *encoder)

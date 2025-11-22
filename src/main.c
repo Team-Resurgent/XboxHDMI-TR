@@ -290,7 +290,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region) {
     }
 
     bool widescreen = mode & XBOX_VIDEO_WIDESCREEN;
-    bool interlaced = mode & XBOX_VIDEO_INTERLACED;
+    bool interlaced = (mode == 0x880E0C03);
 
     set_adv_video_mode(vs, widescreen, interlaced);
 }

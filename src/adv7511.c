@@ -60,6 +60,19 @@ uint8_t adv7511_write_register(const uint8_t address, uint8_t value)
     return 0;
 }
 
+void adv7511_write_register_no_check(const uint8_t address, uint8_t value)
+{
+    I2C_HandleTypeDef *i2c = adv7511_i2c_instance();
+
+    (void) HAL_I2C_Mem_Write(i2c,
+                             ADV7511_MAIN_I2C_ADDR,
+                             address,
+                             0x01, //Memory Address Size
+                             &value,
+                             0x01, //Bytes to send
+                             100); //Timeout (ms)
+}
+
 uint8_t adv7511_write_cec(const uint8_t address, uint8_t value)
 {
     I2C_HandleTypeDef *i2c = adv7511_i2c_instance();

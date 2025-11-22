@@ -348,12 +348,12 @@ inline uint8_t set_adv_video_mode(const video_setting * const vs, const bool wid
         error |= adv7511_update_register(0xDC, 0b11100000, 0 << 5);
     }
 
-    error |= adv7511_write_register(0x35, (uint8_t)(vs->delay_hs >> 2));
-    error |= adv7511_write_register(0x36, (0b00111111 & (uint8_t)vs->delay_vs)) | (0b11000000 & (uint8_t)(vs->delay_hs << 6));
-    error |= adv7511_write_register(0x37, (uint8_t)(vs->active_w >> 7));
-    error |= adv7511_write_register(0x38, (uint8_t)(vs->active_w << 1));
-    error |= adv7511_write_register(0x39, (uint8_t)(vs->active_h >> 4));
-    error |= adv7511_write_register(0x3A, (uint8_t)(vs->active_h << 4));
+    adv7511_write_register_no_check(0x35, (uint8_t)(vs->delay_hs >> 2));
+    adv7511_write_register_no_check(0x36, ((0b00111111 & (uint8_t)vs->delay_vs)) | (0b11000000 & (uint8_t)(vs->delay_hs << 6)));
+    adv7511_write_register_no_check(0x37, (uint8_t)(vs->active_w >> 7));
+    adv7511_write_register_no_check(0x38, (uint8_t)(vs->active_w << 1));
+    adv7511_write_register_no_check(0x39, (uint8_t)(vs->active_h >> 4));
+    adv7511_write_register_no_check(0x3A, (uint8_t)(vs->active_h << 4));
 
     // debug_log("Actual Pixel Repetition : 0x%02x\r\n", (adv7511_read_register(0x3D) & 0xC0) >> 6);
     debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);

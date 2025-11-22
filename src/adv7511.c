@@ -16,7 +16,7 @@ void adv7511_struct_init(adv7511 *encoder)
     encoder->monitor_sense = 0;
 }
 
-uint8_t adv7511_read_register(uint8_t address)
+uint8_t adv7511_read_register(const uint8_t address)
 {
     I2C_HandleTypeDef *i2c = adv7511_i2c_instance();
 
@@ -39,7 +39,7 @@ uint8_t adv7511_read_register(uint8_t address)
     return register_value;
 }
 
-uint8_t adv7511_write_register(uint8_t address, uint8_t value)
+uint8_t adv7511_write_register(const uint8_t address, uint8_t value)
 {
     I2C_HandleTypeDef *i2c = adv7511_i2c_instance();
 
@@ -60,7 +60,7 @@ uint8_t adv7511_write_register(uint8_t address, uint8_t value)
     return 0;
 }
 
-uint8_t adv7511_write_cec(uint8_t address, uint8_t value)
+uint8_t adv7511_write_cec(const uint8_t address, uint8_t value)
 {
     I2C_HandleTypeDef *i2c = adv7511_i2c_instance();
 
@@ -134,7 +134,7 @@ uint8_t adv7511_power_up(adv7511 *encoder)
     return 0;
 }
 
-uint8_t apply_csc(uint8_t *coefficients)
+uint8_t apply_csc(const uint8_t * const coefficients)
 {
     uint8_t error = 0;
     for (uint8_t i = 0x18; i <= 0x2F; i++)

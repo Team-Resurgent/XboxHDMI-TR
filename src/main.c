@@ -167,7 +167,7 @@ uint8_t init_adv() {
 
     // Power up the encoder and set fixed registers
     error |= adv7511_power_up(&encoder);
-    HAL_Delay(200);
+    HAL_Delay(50);
 
     // Set video input mode to YCbCr 444, 12bit databus DDR
     error |= adv7511_update_register(0x15, 0b00001111, 0b000000101); //ID=5

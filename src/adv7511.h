@@ -13,14 +13,14 @@
 #define ADV7511_INT0_HPD BIT(7)
 #define ADV7511_INT0_MONITOR_SENSE BIT(6)
 
-#define ADV7511_VIC_CHANGED 0x80
-#define ADV7511_VIC_CHANGED_CLEAR 0x7F
-#define ADV7511_VIC_UNAVAILABLE 0
+#define ADV7511_VIC_CHANGED         0x80
+#define ADV7511_VIC_CHANGED_CLEAR   0x7F
+#define ADV7511_VIC_UNAVAILABLE     0
 #define ADV7511_VIC_VGA_640x480_4_3 1
-#define ADV7511_VIC_480p_4_3 2
-#define ADV7511_VIC_480p_16_9 3
-#define ADV7511_VIC_720p_60_16_9 4
-#define ADV7511_VIC_1080i_60_16_9 5
+#define ADV7511_VIC_480p_4_3        2
+#define ADV7511_VIC_480p_16_9       3
+#define ADV7511_VIC_720p_60_16_9    4
+#define ADV7511_VIC_1080i_60_16_9   5
 
 /* Hardware defined default addresses for I2C register maps */
 #define ADV7511_MAIN_I2C_ADDR 0x72           //0x72>>1
@@ -178,7 +178,7 @@ typedef struct
 } adv7511;
 
 uint8_t adv7511_power_up(adv7511 *encoder);
-uint8_t adv7511_update_register(uint8_t address, uint8_t mask, uint8_t new_value);
+uint8_t adv7511_update_register(const uint8_t address, const uint8_t mask, uint8_t new_value);
 uint8_t adv7511_read_register(uint8_t address);
 uint8_t adv7511_write_register(uint8_t address, uint8_t value);
 uint8_t adv7511_write_cec(uint8_t address, uint8_t value);

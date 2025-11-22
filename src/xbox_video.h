@@ -34,6 +34,7 @@ typedef struct bios_mode {
 #define XBOX_VIDEO_BIOS_MODE_COUNT 101
 
 // Bios mode values
+// Note, we should only care about YPrPb values but for now all of the modes are here
 const bios_mode video_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x04010101, {118, 36,  640,  480}}, // XBOX_VIDEO_640x480_NTSC_M_YC
     {0x14010101, {118, 36,  640,  480}}, // XBOX_VIDEO_640x480_NTSC_M_YC_16x9

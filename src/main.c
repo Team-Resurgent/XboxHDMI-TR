@@ -153,7 +153,7 @@ int main(void)
 uint8_t init_adv() {
     adv7511_i2c_init();
 
-    HAL_Delay(100);
+    HAL_Delay(50);
     // debug_log("\r\nADV7511 Chip Revision %u\r\n", adv7511_read_register(0x00));
 
     uint8_t error = 0;
@@ -226,6 +226,9 @@ uint8_t init_adv() {
 
     // SPDIF enable
     error |= adv7511_update_register(0x0B, 0b10000000, 0b10000000);
+
+    const uint8_t ddr_edge = 1;
+    error |= adv7511_update_register(0x16, 0b00000010, ddr_edge << 1);
     return error;
 }
 
@@ -329,7 +332,6 @@ uint8_t set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool
 
 inline uint8_t set_adv_video_mode(const video_setting * const vs, const bool widescreen, const bool interlaced) {
     uint8_t error = 0;
-    uint8_t ddr_edge = 1;
 
     if (widescreen) {
         // Infoframe output aspect ratio default to 16:9
@@ -346,7 +348,6 @@ inline uint8_t set_adv_video_mode(const video_setting * const vs, const bool wid
         error |= adv7511_update_register(0xDC, 0b11100000, 0 << 5);
     }
 
-    error |= adv7511_update_register(0x16, 0b00000010, ddr_edge << 1);
     error |= adv7511_update_register(0x36, 0b00111111, (uint8_t)vs->delay_vs);
     error |= adv7511_update_register(0x35, 0b11111111, (uint8_t)(vs->delay_hs >> 2));
     error |= adv7511_update_register(0x36, 0b11000000, (uint8_t)(vs->delay_hs << 6));

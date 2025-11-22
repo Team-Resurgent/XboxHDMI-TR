@@ -81,7 +81,7 @@ uint8_t adv7511_write_cec(uint8_t address, uint8_t value)
     return 0;
 }
 
-uint8_t adv7511_update_register(uint8_t address, uint8_t mask, uint8_t new_value)
+uint8_t adv7511_update_register(const uint8_t address, const uint8_t mask, uint8_t new_value)
 {
     uint8_t working_value;
     uint8_t register_value = adv7511_read_register(address);
@@ -100,18 +100,18 @@ uint8_t adv7511_power_up(adv7511 *encoder)
     static const uint8_t add = 0, val = 1, msk = 2;
 
     static const uint8_t adv7511_startup[11][3] = {
-        //Address, Value, Bit mask//
+        // Address, Value, Bit mask
         {0x41, 0x00, 0b01000000},
-        {0x98, 0x03, 0b11111111}, //Must be set to 0x03 for proper operation
-        {0x9a, 0xe0, 0b11100000}, //Must be set to 0xe0 for proper operation
-        {0x9c, 0x30, 0b11111111}, //Must be set to 0x30 for proper operation
-        {0x9d, 0x01, 0b00000001}, //Must be set to 0b01 for proper operation
-        {0xa2, 0xa4, 0b11111111}, //Must be set to 0xA4 for proper operation
-        {0xa3, 0xa4, 0b11111111}, //Must be set to 0xA4 for proper operation
-        {0xe0, 0xd0, 0b11111111}, //Must be set to 0xD0 for proper operation
-        {0xf9, 0x00, 0b11111111}, //This should be set to a non-conflicting I2C address (0x00)
-        {0x55, 0x01, 0b00000011}, //Set AVI info-frame to TV
-        {0x96, 0xc0, 0b11000000}, //Enable HPD and Monitor Sense interrupts
+        {0x98, 0x03, 0b11111111}, // Must be set to 0x03 for proper operation
+        {0x9a, 0xe0, 0b11100000}, // Must be set to 0xe0 for proper operation
+        {0x9c, 0x30, 0b11111111}, // Must be set to 0x30 for proper operation
+        {0x9d, 0x01, 0b00000001}, // Must be set to 0b01 for proper operation
+        {0xa2, 0xa4, 0b11111111}, // Must be set to 0xA4 for proper operation
+        {0xa3, 0xa4, 0b11111111}, // Must be set to 0xA4 for proper operation
+        {0xe0, 0xd0, 0b11111111}, // Must be set to 0xD0 for proper operation
+        {0xf9, 0x00, 0b11111111}, // This should be set to a non-conflicting I2C address (0x00)
+        {0x55, 0x01, 0b00000011}, // Set AVI info-frame to TV
+        {0x96, 0xc0, 0b11000000}, // Enable HPD and Monitor Sense interrupts
     };
 
     if (encoder->hot_plug_detect)

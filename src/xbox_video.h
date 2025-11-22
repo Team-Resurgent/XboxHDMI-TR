@@ -30,7 +30,6 @@ typedef struct bios_mode {
 #pragma pack()
 
 #define XBOX_VIDEO_WIDESCREEN 0x10000000
-#define XBOX_VIDEO_INTERLACED 0x01000000 // TODO
 
 #define XBOX_VIDEO_BIOS_MODE_COUNT 99
 

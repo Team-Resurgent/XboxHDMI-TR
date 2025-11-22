@@ -347,6 +347,8 @@ inline void set_adv_video_mode(const video_setting * const vs, const bool widesc
     adv7511_write_register_nc(0x39, (uint8_t)(vs->active_h >> 4));
     adv7511_write_register_nc(0x3A, (uint8_t)(vs->active_h << 4));
 
+    // Set the vic from the table
+    adv7511_write_register_nc(0x3C, vs->vic);
     // debug_log("Actual Pixel Repetition : 0x%02x\r\n", (adv7511_read_register(0x3D) & 0xC0) >> 6);
     // debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);
 }

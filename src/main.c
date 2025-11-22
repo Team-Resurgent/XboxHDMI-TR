@@ -15,7 +15,7 @@ adv7511 encoder;
 xbox_encoder xb_encoder;
 
 uint8_t init_adv();
-uint8_t init_adv_encoder_specific();
+void init_adv_encoder_specific();
 uint8_t set_video_mode_vic(const uint8_t mode, const bool wide, const bool interlaced);
 uint8_t set_video_mode_bios(const uint32_t mode, const video_region region);
 uint8_t set_adv_video_mode(const video_setting * const vs, const bool widescreen, const bool interlaced);
@@ -69,7 +69,7 @@ int main(void)
                 // Detect the encoder, if it changed reinit encoder specific values
                 if (xb_encoder != vid_settings->encoder) {
                     xb_encoder = vid_settings->encoder;
-                    error |= init_adv_encoder_specific();
+                    init_adv_encoder_specific();
                 }
 
                 error |= set_video_mode_bios(vid_settings->mode, vid_settings->region);
@@ -91,9 +91,6 @@ int main(void)
             if (vic & ADV7511_VIC_CHANGED)
             {
                 vic &= ADV7511_VIC_CHANGED_CLEAR;
-
-                // Set pixel rep mode to auto
-                // error |= adv7511_update_register(0x3B, 0b01100000, 0b00000000);
 
                 if (vic == ADV7511_VIC_VGA_640x480_4_3)
                 {
@@ -179,10 +176,7 @@ uint8_t init_adv() {
     error |= adv7511_update_register(0x16, 0b00000010, 0b00000010); //Rising
 
     // Setup encoder specific stuff
-    error |= init_adv_encoder_specific();
-
-    // Must be 11 for ID=5 (No sync pulse)
-    error |= adv7511_update_register(0xD0, 0b00001100, 0b00001100);
+    init_adv_encoder_specific();
 
     // Enable DE generation. This is derived from HSYNC,VSYNC for video active framing
     error |= adv7511_update_register(0x17, 0b00000001, 0b00000001);
@@ -196,9 +190,8 @@ uint8_t init_adv() {
     // Infoframe output format to YCbCr 4:4:4 in infoframe* 10=YCbCr4:4:4, 00=RGB
     error |= adv7511_update_register(0x55, 0b01100000, 0b01000000);
 
-    // Infoframe output aspect ratio default to 4:3
-    error |= adv7511_update_register(0x56, 0b00110000, 0b00010000);
-    error |= adv7511_update_register(0x56, 0b00001111, 0b00001000);
+    // Infoframe output aspect ratio default to 4:3 + Active Format Aspect Ratio (same as aspect ratio)
+    error |= adv7511_write_register(0x56, 0b00011000);
 
     // END AVI Infoframe Update
     error |= adv7511_update_register(0x4A, 0b01000000, 0b00000000);
@@ -232,27 +225,23 @@ uint8_t init_adv() {
     return error;
 }
 
-uint8_t init_adv_encoder_specific() {
-    uint8_t error = 0;
-
+void init_adv_encoder_specific() {
     if (xb_encoder == ENCODER_XCALIBUR)
     {
         // Normal Bus Order, DDR Alignment D[35:18] (left aligned)
-        error |= adv7511_update_register(0x48, 0b01100000, 0b00100000);
-        // Disable DDR Negative Edge CLK Delay, with 0ns delay
-        error |= adv7511_update_register(0xD0, 0b11110000, 0b00110000);
+        adv7511_write_register_no_check(0x48, 0b00100000);
+        // Disable DDR Negative Edge CLK Delay, with 0ns delay. No sync pulse
+        adv7511_write_register_no_check(0xD0, 0b00111100);
         // -0.4ns clock delay
-        error |= adv7511_update_register(0xBA, 0b11100000, 0b01000000);
+        adv7511_write_register_no_check(0xBA, 0b01000000);
     } else {
         // LSB .... MSB Reverse Bus Order, DDR Alignment D[17:0] (right aligned)
-        error |= adv7511_update_register(0x48, 0b01100000, 0b01000000);
-        // Enable DDR Negative Edge CLK Delay, with 0ns delay
-        error |= adv7511_update_register(0xD0, 0b11110000, 0b10110000);
+        adv7511_write_register_no_check(0x48, 0b01000000);
+        // Enable DDR Negative Edge CLK Delay, with 0ns delay. No sync pulse
+        adv7511_write_register_no_check(0xD0, 0b10111100);
         // No clock delay
-        error |= adv7511_update_register(0xBA, 0b11100000, 0b01100000);
+        adv7511_write_register_no_check(0xBA, 0b01100000);
     }
-
-    return error;
 }
 
 uint8_t set_video_mode_bios(const uint32_t mode, const video_region region) {
@@ -335,10 +324,10 @@ inline uint8_t set_adv_video_mode(const video_setting * const vs, const bool wid
 
     if (widescreen) {
         // Infoframe output aspect ratio default to 16:9
-        error |= adv7511_update_register(0x56, 0b00110000, 0b00100000);
+        adv7511_write_register_no_check(0x56, 0b00101000);
     } else {
         // Infoframe output aspect ratio default to 4:3
-        error |= adv7511_update_register(0x56, 0b00110000, 0b00010000);
+        adv7511_write_register_no_check(0x56, 0b00011000);
     }
 
     if (interlaced) {
@@ -350,7 +339,7 @@ inline uint8_t set_adv_video_mode(const video_setting * const vs, const bool wid
 
     adv7511_write_register_no_check(0x35, (uint8_t)(vs->delay_hs >> 2));
     adv7511_write_register_no_check(0x36, ((0b00111111 & (uint8_t)vs->delay_vs)) | (0b11000000 & (uint8_t)(vs->delay_hs << 6)));
-    adv7511_write_register_no_check(0x37, (uint8_t)(vs->active_w >> 7));
+    error |= adv7511_update_register(0x37, 0b00011111, (uint8_t)(vs->active_w >> 7)); // 0x37 is shared with interlaced
     adv7511_write_register_no_check(0x38, (uint8_t)(vs->active_w << 1));
     adv7511_write_register_no_check(0x39, (uint8_t)(vs->active_h >> 4));
     adv7511_write_register_no_check(0x3A, (uint8_t)(vs->active_h << 4));

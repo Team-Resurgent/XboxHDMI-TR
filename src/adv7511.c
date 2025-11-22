@@ -60,7 +60,7 @@ uint8_t adv7511_write_register(const uint8_t address, uint8_t value)
     return 0;
 }
 
-void adv7511_write_register_no_check(const uint8_t address, uint8_t value)
+void adv7511_write_register_nc(const uint8_t address, uint8_t value)
 {
     I2C_HandleTypeDef *i2c = adv7511_i2c_instance();
 
@@ -104,6 +104,18 @@ uint8_t adv7511_update_register(const uint8_t address, const uint8_t mask, uint8
     new_value |= working_value;
 
     return adv7511_write_register(address, new_value);
+}
+
+void adv7511_update_register_nc(const uint8_t address, const uint8_t mask, uint8_t new_value)
+{
+    uint8_t working_value;
+    uint8_t register_value = adv7511_read_register(address);
+
+    working_value = register_value & ~mask;
+    new_value &= mask;
+    new_value |= working_value;
+
+    adv7511_write_register(address, new_value);
 }
 
 uint8_t adv7511_power_up(adv7511 *encoder)

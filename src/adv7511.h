@@ -179,9 +179,10 @@ typedef struct
 
 uint8_t adv7511_power_up(adv7511 *encoder);
 uint8_t adv7511_update_register(const uint8_t address, const uint8_t mask, uint8_t new_value);
+void adv7511_update_register_nc(const uint8_t address, const uint8_t mask, uint8_t new_value);
 uint8_t adv7511_read_register(const uint8_t address);
 uint8_t adv7511_write_register(const uint8_t address, uint8_t value);
-void adv7511_write_register_no_check(const uint8_t address, uint8_t value);
+void adv7511_write_register_nc(const uint8_t address, uint8_t value);
 uint8_t adv7511_write_cec(const uint8_t address, uint8_t value);
 void adv7511_struct_init(adv7511 *encoder);
 uint8_t apply_csc(const uint8_t * const coefficients);

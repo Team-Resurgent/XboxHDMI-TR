@@ -16,9 +16,12 @@ xbox_encoder xb_encoder;
 
 uint8_t init_adv();
 void init_adv_encoder_specific();
-uint8_t set_video_mode_vic(const uint8_t mode, const bool wide, const bool interlaced);
-uint8_t set_video_mode_bios(const uint32_t mode, const video_region region);
-uint8_t set_adv_video_mode(const video_setting * const vs, const bool widescreen, const bool interlaced);
+void adv_handle_interrupts();
+
+void set_video_mode_vic(const uint8_t mode, const bool wide, const bool interlaced);
+void set_video_mode_bios(const uint32_t mode, const video_region region);
+void set_adv_video_mode(const video_setting * const vs, const bool widescreen, const bool interlaced);
+
 void SystemClock_Config(void);
 static void init_gpio(void);
 
@@ -51,14 +54,13 @@ int main(void)
 
     apply_csc((uint8_t *)identityMatrix);
     uint8_t vic = 0x80;
-    uint8_t pll_lock = 0;
 
     while (true)
     {
         debug_ring_flush();
 
         // Check PLL status
-        pll_lock = (adv7511_read_register(0x9E) >> 4) & 0x01;
+        bool pll_lock = (adv7511_read_register(0x9E) >> 4) & 0x01;
         led_status1(pll_lock);
 
         if (bios_tookover()) {
@@ -72,7 +74,7 @@ int main(void)
                     init_adv_encoder_specific();
                 }
 
-                error |= set_video_mode_bios(vid_settings->mode, vid_settings->region);
+                set_video_mode_bios(vid_settings->mode, vid_settings->region);
                 ack_video_mode_update();
             }
         }
@@ -82,10 +84,10 @@ int main(void)
 
             if ((adv7511_read_register(0x3e) >> 2) != (vic & 0x0F))
             {
-                debug_log("VIC Changed!\r\n");
+                // debug_log("VIC Changed!\r\n");
                 // Set MSB to 1. This indicates a recent change.
                 vic = ADV7511_VIC_CHANGED | adv7511_read_register(0x3e) >> 2;
-                debug_log("Detected VIC#: 0x%02x\r\n", vic & ADV7511_VIC_CHANGED_CLEAR);
+                // debug_log("Detected VIC#: 0x%02x\r\n", vic & ADV7511_VIC_CHANGED_CLEAR);
             }
 
             if (vic & ADV7511_VIC_CHANGED)
@@ -94,56 +96,28 @@ int main(void)
 
                 if (vic == ADV7511_VIC_VGA_640x480_4_3)
                 {
-                    error |= set_video_mode_vic(XBOX_VIDEO_VGA, false, false);
+                    set_video_mode_vic(XBOX_VIDEO_VGA, false, false);
                 }
                 else if (vic == ADV7511_VIC_480p_4_3 || vic == ADV7511_VIC_UNAVAILABLE)
                 {
-                    error |= set_video_mode_vic(XBOX_VIDEO_480p_640, false, false);
+                    set_video_mode_vic(XBOX_VIDEO_480p_640, false, false);
                 }
                 else if (vic == ADV7511_VIC_480p_16_9)
                 {
-                    error |= set_video_mode_vic(XBOX_VIDEO_480p_720, true, false);
+                    set_video_mode_vic(XBOX_VIDEO_480p_720, true, false);
                 }
                 else if (vic == ADV7511_VIC_720p_60_16_9)
                 {
-                    error |= set_video_mode_vic(XBOX_VIDEO_720p, true, false);
+                    set_video_mode_vic(XBOX_VIDEO_720p, true, false);
                 }
                 else if (vic == ADV7511_VIC_1080i_60_16_9)
                 {
-                    error |= set_video_mode_vic(XBOX_VIDEO_1080i, false, true);
+                    set_video_mode_vic(XBOX_VIDEO_1080i, false, true);
                 }
             }
         }
 
-        if (encoder.interrupt)
-        {
-            uint8_t interrupt_register = adv7511_read_register(0x96);
-            debug_log("interrupt_register: 0x%02x\r\n", interrupt_register);
-
-            if (interrupt_register & ADV7511_INT0_HPD)
-            {
-                debug_log("HPD interrupt\r\n");
-                encoder.hot_plug_detect = (adv7511_read_register(0x42) >> 6) & 0x01;
-            }
-
-            if (interrupt_register & ADV7511_INT0_MONITOR_SENSE)
-            {
-                debug_log("Monitor Sense Interrupt\r\n");
-                encoder.monitor_sense = (adv7511_read_register(0x42) >> 5) & 0x01;
-            }
-
-            (encoder.hot_plug_detect) ? printf("HDMI cable detected\r\n") : printf("HDMI cable not detected\r\n");
-            (encoder.monitor_sense) ? printf("Monitor is ready\r\n") : printf("Monitor is not ready\r\n");
-
-            if (encoder.hot_plug_detect && encoder.monitor_sense)
-            {
-                adv7511_power_up(&encoder);
-            }
-
-            encoder.interrupt = 0;
-            // Re-enable interrupts
-            adv7511_update_register(0x96, 0b11000000, 0xC0);
-        }
+        adv_handle_interrupts();
     }
 }
 
@@ -229,22 +203,51 @@ void init_adv_encoder_specific() {
     if (xb_encoder == ENCODER_XCALIBUR)
     {
         // Normal Bus Order, DDR Alignment D[35:18] (left aligned)
-        adv7511_write_register_no_check(0x48, 0b00100000);
+        adv7511_write_register_nc(0x48, 0b00100000);
         // Disable DDR Negative Edge CLK Delay, with 0ns delay. No sync pulse
-        adv7511_write_register_no_check(0xD0, 0b00111100);
+        adv7511_write_register_nc(0xD0, 0b00111100);
         // -0.4ns clock delay
-        adv7511_write_register_no_check(0xBA, 0b01000000);
+        adv7511_write_register_nc(0xBA, 0b01000000);
     } else {
         // LSB .... MSB Reverse Bus Order, DDR Alignment D[17:0] (right aligned)
-        adv7511_write_register_no_check(0x48, 0b01000000);
+        adv7511_write_register_nc(0x48, 0b01000000);
         // Enable DDR Negative Edge CLK Delay, with 0ns delay. No sync pulse
-        adv7511_write_register_no_check(0xD0, 0b10111100);
+        adv7511_write_register_nc(0xD0, 0b10111100);
         // No clock delay
-        adv7511_write_register_no_check(0xBA, 0b01100000);
+        adv7511_write_register_nc(0xBA, 0b01100000);
     }
 }
 
-uint8_t set_video_mode_bios(const uint32_t mode, const video_region region) {
+void adv_handle_interrupts() {
+    if (encoder.interrupt)
+    {
+        uint8_t interrupt_register = adv7511_read_register(0x96);
+        // debug_log("interrupt_register: 0x%02x\r\n", interrupt_register);
+
+        if (interrupt_register & ADV7511_INT0_HPD)
+        {
+            // debug_log("HPD interrupt\r\n");
+            encoder.hot_plug_detect = (adv7511_read_register(0x42) >> 6) & 0x01;
+        }
+
+        if (interrupt_register & ADV7511_INT0_MONITOR_SENSE)
+        {
+            // debug_log("Monitor Sense Interrupt\r\n");
+            encoder.monitor_sense = (adv7511_read_register(0x42) >> 5) & 0x01;
+        }
+
+        if (encoder.hot_plug_detect && encoder.monitor_sense)
+        {
+            adv7511_power_up(&encoder);
+        }
+
+        encoder.interrupt = 0;
+        // Re-enable interrupts
+        adv7511_update_register(0x96, 0b11000000, 0xC0);
+    }
+}
+
+void set_video_mode_bios(const uint32_t mode, const video_region region) {
     const video_setting* vs = NULL;
     switch (xb_encoder) {
         case ENCODER_CONEXANT:
@@ -283,18 +286,19 @@ uint8_t set_video_mode_bios(const uint32_t mode, const video_region region) {
     // We didnt find a video mode, abort change
     if (vs == NULL) {
         debug_log("Video mode not present %d\r\n", mode);
-        return 1;
+        return;
     }
 
     bool widescreen = mode & XBOX_VIDEO_WIDESCREEN;
     bool interlaced = mode & XBOX_VIDEO_INTERLACED;
 
-    return set_adv_video_mode(vs, widescreen, interlaced);
+    set_adv_video_mode(vs, widescreen, interlaced);
 }
 
-uint8_t set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced) {
+void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced) {
     if (mode > XBOX_VIDEO_1080i) {
-        return 1;
+        debug_log("Invalid video mode for VIC\r\n");
+        return;
     }
 
     const video_setting* vs = NULL;
@@ -312,42 +316,39 @@ uint8_t set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool
             break;
 
         default:
-            return 1;
+            debug_log("Invalid encoder in set_video_mode_vic\r\n");
+            return;
     }
 
-    debug_log("Set %d mode, widescree %s, interlaced %s\r\n", mode, widescreen ? "true" : "false", interlaced ? "true" : "false");
-    return set_adv_video_mode(vs, widescreen, interlaced);
+    // debug_log("Set %d mode, widescree %s, interlaced %s\r\n", mode, widescreen ? "true" : "false", interlaced ? "true" : "false");
+    set_adv_video_mode(vs, widescreen, interlaced);
 }
 
-inline uint8_t set_adv_video_mode(const video_setting * const vs, const bool widescreen, const bool interlaced) {
-    uint8_t error = 0;
-
+inline void set_adv_video_mode(const video_setting * const vs, const bool widescreen, const bool interlaced) {
     if (widescreen) {
         // Infoframe output aspect ratio default to 16:9
-        adv7511_write_register_no_check(0x56, 0b00101000);
+        adv7511_write_register_nc(0x56, 0b00101000);
     } else {
         // Infoframe output aspect ratio default to 4:3
-        adv7511_write_register_no_check(0x56, 0b00011000);
+        adv7511_write_register_nc(0x56, 0b00011000);
     }
 
     if (interlaced) {
         // Set interlace offset
-        error |= adv7511_update_register(0x37, 0b11100000, 0 << 5);
+        adv7511_update_register_nc(0x37, 0b11100000, 0 << 5);
         // Offset for Sync Adjustment Vsync Placement
-        error |= adv7511_update_register(0xDC, 0b11100000, 0 << 5);
+        adv7511_update_register_nc(0xDC, 0b11100000, 0 << 5);
     }
 
-    adv7511_write_register_no_check(0x35, (uint8_t)(vs->delay_hs >> 2));
-    adv7511_write_register_no_check(0x36, ((0b00111111 & (uint8_t)vs->delay_vs)) | (0b11000000 & (uint8_t)(vs->delay_hs << 6)));
-    error |= adv7511_update_register(0x37, 0b00011111, (uint8_t)(vs->active_w >> 7)); // 0x37 is shared with interlaced
-    adv7511_write_register_no_check(0x38, (uint8_t)(vs->active_w << 1));
-    adv7511_write_register_no_check(0x39, (uint8_t)(vs->active_h >> 4));
-    adv7511_write_register_no_check(0x3A, (uint8_t)(vs->active_h << 4));
+    adv7511_write_register_nc(0x35, (uint8_t)(vs->delay_hs >> 2));
+    adv7511_write_register_nc(0x36, ((0b00111111 & (uint8_t)vs->delay_vs)) | (0b11000000 & (uint8_t)(vs->delay_hs << 6)));
+    adv7511_update_register_nc(0x37, 0b00011111, (uint8_t)(vs->active_w >> 7)); // 0x37 is shared with interlaced
+    adv7511_write_register_nc(0x38, (uint8_t)(vs->active_w << 1));
+    adv7511_write_register_nc(0x39, (uint8_t)(vs->active_h >> 4));
+    adv7511_write_register_nc(0x3A, (uint8_t)(vs->active_h << 4));
 
     // debug_log("Actual Pixel Repetition : 0x%02x\r\n", (adv7511_read_register(0x3D) & 0xC0) >> 6);
-    debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);
-
-    return error;
+    // debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);
 }
 
 //TODO split this out

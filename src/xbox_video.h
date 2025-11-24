@@ -33,7 +33,7 @@ typedef struct bios_mode {
 
 #define XBOX_VIDEO_WIDESCREEN 0x10000000
 
-#define XBOX_VIDEO_BIOS_MODE_COUNT 99
+#define XBOX_VIDEO_BIOS_MODE_COUNT 97
 
 // Bios mode values
 // Note, we should only care about YPrPb values but for now all of the modes are here
@@ -139,10 +139,8 @@ const bios_mode video_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x5406060A, {118, 25,  720,  576, VIC_18_576p_50_16_9}}, // XBOX_VIDEO_720x576_PAL_I_YC_16x9
 
     // Others
-    {0x88070701, {118, 36,  640,  480, VIC_01_VGA_640x480_4_3}}, // XBOX_VIDEO_640x480_VGA
     {0x88070701, {118, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_480P
     {0x88110F01, {118, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_FPAR_480P
-    {0x88080801, {118, 36,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_720x480_VGA
     {0x88080801, {118, 36,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_720x480_480P
 };
 
@@ -248,10 +246,8 @@ const bios_mode video_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x5406060A, {118, 25,  720,  576, VIC_18_576p_50_16_9}}, // XBOX_VIDEO_720x576_PAL_I_YC_16x9
 
     // Others
-    {0x88070701, {118, 36,  640,  480, VIC_01_VGA_640x480_4_3}}, // XBOX_VIDEO_640x480_VGA
     {0x88070701, {118, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_480P
     {0x88110F01, {118, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_FPAR_480P
-    {0x88080801, {118, 36,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_720x480_VGA
     {0x88080801, {118, 36,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_720x480_480P
 };
 
@@ -357,10 +353,8 @@ const bios_mode video_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x5406060A, { 95, 25,  720,  576, VIC_18_576p_50_16_9}}, // XBOX_VIDEO_720x576_PAL_I_YC_16x9
 
     // Others
-    {0x88070701, { 95, 36,  640,  480, VIC_01_VGA_640x480_4_3}}, // XBOX_VIDEO_640x480_VGA
     {0x88070701, { 95, 25,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_480P
     {0x88110F01, { 95, 36,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_FPAR_480P
-    {0x88080801, { 95, 36,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_720x480_VGA
     {0x88080801, { 95, 25,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_720x480_480P
 };
 

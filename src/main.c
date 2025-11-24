@@ -338,6 +338,7 @@ inline void set_adv_video_mode(const video_setting * const vs, const bool widesc
     adv7511_write_register(0x38, (uint8_t)(vs->active_w << 1));
     adv7511_write_register(0x39, (uint8_t)(vs->active_h >> 4));
     adv7511_write_register(0x3A, (uint8_t)(vs->active_h << 4));
+    // Hsync/Vsync duration+porch might be needed at some point, 1.6 FPAR has some pillar boxing
 
     // Set the vic from the table
     adv7511_write_register(0x3C, vs->vic);

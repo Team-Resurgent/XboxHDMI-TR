@@ -14,6 +14,7 @@ void adv7511_struct_init(adv7511 *encoder)
     encoder->hot_plug_detect = 0;
     encoder->interrupt = 0;
     encoder->monitor_sense = 0;
+    encoder->vic = 0x80;
 }
 
 uint8_t adv7511_read_register(const uint8_t address)

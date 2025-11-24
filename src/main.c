@@ -17,6 +17,9 @@ void init_adv();
 void init_adv_encoder_specific();
 void adv_handle_interrupts();
 
+void bios_loop();
+void stand_alone_loop();
+
 void set_video_mode_vic(const uint8_t mode, const bool wide, const bool interlaced);
 void set_video_mode_bios(const uint32_t mode, const video_region region);
 void set_adv_video_mode(const video_setting * const vs, const bool widescreen, const bool interlaced);
@@ -46,7 +49,6 @@ int main(void)
     smbus_i2c_init();
 
     apply_csc((uint8_t *)identityMatrix);
-    uint8_t vic = 0x80;
 
     while (true)
     {
@@ -57,56 +59,11 @@ int main(void)
         led_status1(pll_lock);
 
         if (bios_tookover()) {
-            led_status2(true);
-
-            if (video_mode_updated()) {
-                const SMBusSettings * const vid_settings = getSMBusSettings();
-                // Detect the encoder, if it changed reinit encoder specific values
-                if (xb_encoder != vid_settings->encoder) {
-                    xb_encoder = vid_settings->encoder;
-                    init_adv_encoder_specific();
-                }
-
-                set_video_mode_bios(vid_settings->mode, vid_settings->region);
-                ack_video_mode_update();
-            }
+            bios_loop();
         }
         else
         {
-            led_status2(false);
-
-            if ((adv7511_read_register(0x3e) >> 2) != (vic & 0x0F))
-            {
-                // Set MSB to 1. This indicates a recent change.
-                vic = ADV7511_VIC_CHANGED | adv7511_read_register(0x3e) >> 2;
-                debug_log("Detected VIC#: 0x%02x\r\n", vic & ADV7511_VIC_CHANGED_CLEAR);
-            }
-
-            if (vic & ADV7511_VIC_CHANGED)
-            {
-                vic &= ADV7511_VIC_CHANGED_CLEAR;
-
-                if (vic == VIC_01_VGA_640x480_4_3)
-                {
-                    set_video_mode_vic(XBOX_VIDEO_VGA, false, false);
-                }
-                else if (vic == VIC_02_480p_60__4_3 || vic == VIC_00_VIC_Unavailable)
-                {
-                    set_video_mode_vic(XBOX_VIDEO_480p_640, false, false);
-                }
-                else if (vic == VIC_03_480p_60_16_9)
-                {
-                    set_video_mode_vic(XBOX_VIDEO_480p_720, true, false);
-                }
-                else if (vic == VIC_04_720p_60_16_9)
-                {
-                    set_video_mode_vic(XBOX_VIDEO_720p, true, false);
-                }
-                else if (vic == VIC_05_1080i_60_16_9)
-                {
-                    set_video_mode_vic(XBOX_VIDEO_1080i, true, true);
-                }
-            }
+            stand_alone_loop();
         }
 
         adv_handle_interrupts();
@@ -204,6 +161,61 @@ void init_adv_encoder_specific() {
         adv7511_write_register(0xD0, 0b10111100);
         // No clock delay
         adv7511_write_register(0xBA, 0b01100000);
+    }
+}
+
+inline void bios_loop()
+{
+    led_status2(true);
+
+    if (video_mode_updated()) {
+        const SMBusSettings * const vid_settings = getSMBusSettings();
+        // Detect the encoder, if it changed reinit encoder specific values
+        if (xb_encoder != vid_settings->encoder) {
+            xb_encoder = vid_settings->encoder;
+            init_adv_encoder_specific();
+        }
+
+        set_video_mode_bios(vid_settings->mode, vid_settings->region);
+        ack_video_mode_update();
+    }
+}
+
+inline void stand_alone_loop()
+{
+    led_status2(false);
+
+    if ((adv7511_read_register(0x3e) >> 2) != (encoder.vic & 0x0F))
+    {
+        // Set MSB to 1. This indicates a recent change.
+        encoder.vic = ADV7511_VIC_CHANGED | adv7511_read_register(0x3e) >> 2;
+        debug_log("Detected VIC#: 0x%02x\r\n", encoder.vic & ADV7511_VIC_CHANGED_CLEAR);
+    }
+
+    if (encoder.vic & ADV7511_VIC_CHANGED)
+    {
+        encoder.vic &= ADV7511_VIC_CHANGED_CLEAR;
+
+        if (encoder.vic == VIC_01_VGA_640x480_4_3)
+        {
+            set_video_mode_vic(XBOX_VIDEO_VGA, false, false);
+        }
+        else if (encoder.vic == VIC_02_480p_60__4_3 || encoder.vic == VIC_00_VIC_Unavailable)
+        {
+            set_video_mode_vic(XBOX_VIDEO_480p_640, false, false);
+        }
+        else if (encoder.vic == VIC_03_480p_60_16_9)
+        {
+            set_video_mode_vic(XBOX_VIDEO_480p_720, true, false);
+        }
+        else if (encoder.vic == VIC_04_720p_60_16_9)
+        {
+            set_video_mode_vic(XBOX_VIDEO_720p, true, false);
+        }
+        else if (encoder.vic == VIC_05_1080i_60_16_9)
+        {
+            set_video_mode_vic(XBOX_VIDEO_1080i, true, true);
+        }
     }
 }
 

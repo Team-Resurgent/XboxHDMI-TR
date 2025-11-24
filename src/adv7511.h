@@ -233,6 +233,7 @@ typedef struct
     uint8_t hot_plug_detect;
     uint8_t monitor_sense;
     uint8_t interrupt;
+    uint8_t vic;
 } adv7511;
 
 void adv7511_power_up(adv7511 *encoder);

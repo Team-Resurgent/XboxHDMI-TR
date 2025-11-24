@@ -4,6 +4,10 @@
 #include <string.h>
 #include <stdarg.h>
 
+// #define DEBUG_OUT
+
+#ifdef DEBUG_OUT
+
 static UART_HandleTypeDef huart2;
 
 #define RING_BUFFER_SIZE 2048
@@ -82,3 +86,23 @@ void debug_ring_flush()
         HAL_UART_Transmit(&huart2, (uint8_t*)&c, 1, HAL_MAX_DELAY);
     }
 }
+
+#else
+void debug_init() 
+{
+}
+
+void debug_log(const char *fmt, ...)
+{
+    (void) fmt;
+}
+
+void debug_ring_log(const char *fmt, ...)
+{
+    (void) fmt;
+}
+
+void debug_ring_flush()
+{
+}
+#endif

@@ -10,7 +10,6 @@
 #include "led.h"
 #include "xbox_video.h"
 
-UART_HandleTypeDef huart;
 adv7511 encoder;
 xbox_encoder xb_encoder;
 
@@ -84,10 +83,9 @@ int main(void)
 
             if ((adv7511_read_register(0x3e) >> 2) != (vic & 0x0F))
             {
-                // debug_log("VIC Changed!\r\n");
                 // Set MSB to 1. This indicates a recent change.
                 vic = ADV7511_VIC_CHANGED | adv7511_read_register(0x3e) >> 2;
-                // debug_log("Detected VIC#: 0x%02x\r\n", vic & ADV7511_VIC_CHANGED_CLEAR);
+                debug_log("Detected VIC#: 0x%02x\r\n", vic & ADV7511_VIC_CHANGED_CLEAR);
             }
 
             if (vic & ADV7511_VIC_CHANGED)
@@ -222,7 +220,6 @@ void adv_handle_interrupts() {
     if (encoder.interrupt)
     {
         uint8_t interrupt_register = adv7511_read_register(0x96);
-        // debug_log("interrupt_register: 0x%02x\r\n", interrupt_register);
 
         if (interrupt_register & ADV7511_INT0_HPD)
         {
@@ -322,7 +319,7 @@ void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool in
             return;
     }
 
-    // debug_log("Set %d mode, widescree %s, interlaced %s\r\n", mode, widescreen ? "true" : "false", interlaced ? "true" : "false");
+    debug_log("Set %d mode, widescree %s, interlaced %s\r\n", mode, widescreen ? "true" : "false", interlaced ? "true" : "false");
     set_adv_video_mode(vs, widescreen, interlaced);
 }
 

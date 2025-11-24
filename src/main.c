@@ -75,13 +75,11 @@ void init_adv()
     adv7511_i2c_init();
 
     HAL_Delay(50);
-    // debug_log("\r\nADV7511 Chip Revision %u\r\n", adv7511_read_register(0x00));
 
     // Initialise the encoder object
     adv7511_struct_init(&encoder);
 
-    // Force Hot Plug Detect High
-    encoder.hot_plug_detect = 1;
+    // Setup HPD Control (forced to high)
     adv7511_write_register(0xD6, 0b11000000);
 
     // Power up the encoder and set fixed registers
@@ -89,22 +87,19 @@ void init_adv()
     HAL_Delay(50);
 
     // Set video input mode to YCbCr 444, 12bit databus DDR
-    adv7511_update_register(0x15, 0b00001111, 0b000000101); //ID=5
+    adv7511_write_register(0x15, 0b000000101);
 
+    // Set Output Format to 4:4:4
+    // 8 bit video
     // Set video style to style 1 (Y[3:0] Cb[7:0] first edge, Cr[7:0] Y[7:4] second edge)
-    adv7511_update_register(0x16, 0b00001100, 0b00001000); //style 1 01 = style 2    10 = style 1  11 = style 3
-
-    // Set DDR Input Edge  first half of pixel data clocking edge, Bit 1 |= 0 for falling edge, 1 for rising edge CHECK
-    adv7511_update_register(0x16, 0b00000010, 0b00000010); //Rising
+    // Set DDR Input Rising Edge
+    adv7511_write_register(0x16, 0b00111011);
 
     // Setup encoder specific stuff
     init_adv_encoder_specific();
 
     // Enable DE generation. This is derived from HSYNC,VSYNC for video active framing
     adv7511_update_register(0x17, 0b00000001, 0b00000001);
-
-    // Set Output Format to 4:4:4
-    adv7511_update_register(0x16, 0b10000000, 0b00000000);
 
     // Start AVI Infoframe Update
     adv7511_update_register(0x4A, 0b01000000, 0b01000000);
@@ -118,32 +113,23 @@ void init_adv()
     // END AVI Infoframe Update
     adv7511_update_register(0x4A, 0b01000000, 0b00000000);
 
-    // Output Color Space Selection 0 = RGB 1 = YCbCr
-    adv7511_update_register(0x16, 0b00000001, 0b00000001);
-
     // Set Output to HDMI Mode (Instead of DVI Mode)
-    adv7511_update_register(0xAF, 0b00000010, 0b00000010);
+    adv7511_write_register(0xAF, 0b00000010);
 
     // Enable General Control Packet CHECK
     adv7511_update_register(0x40, 0b10000000, 0b10000000);
 
-    // Disable CSC
-    // error |= adv7511_update_register(0x18, 0xFF, 0x00);
-
     // SETUP AUDIO
     // Set 48kHz Audio clock CHECK (N Value)
-    adv7511_update_register(0x01, 0xFF, 0x00);
-    adv7511_update_register(0x02, 0xFF, 0x18);
-    adv7511_update_register(0x03, 0xFF, 0x00);
+    adv7511_write_register(0x01, 0x00);
+    adv7511_write_register(0x02, 0x18);
+    adv7511_write_register(0x03, 0x00);
 
     // Set SPDIF audio source
     adv7511_update_register(0x0A, 0b01110000, 0b00010000);
 
     // SPDIF enable
     adv7511_update_register(0x0B, 0b10000000, 0b10000000);
-
-    const uint8_t ddr_edge = 1;
-    adv7511_update_register(0x16, 0b00000010, ddr_edge << 1);
 }
 
 void init_adv_encoder_specific()

@@ -11,7 +11,7 @@
 
 void adv7511_struct_init(adv7511 *encoder)
 {
-    encoder->hot_plug_detect = 0;
+    encoder->hot_plug_detect = 1;
     encoder->interrupt = 0;
     encoder->monitor_sense = 0;
     encoder->vic = 0x80;

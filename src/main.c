@@ -13,7 +13,7 @@
 adv7511 encoder;
 xbox_encoder xb_encoder;
 
-uint8_t init_adv();
+void init_adv();
 void init_adv_encoder_specific();
 void adv_handle_interrupts();
 
@@ -26,13 +26,6 @@ static void init_gpio(void);
 
 int main(void)
 {
-    HAL_Init();
-    SystemClock_Config();
-
-    debug_init();
-    init_gpio();
-    led_init();
-
     // TODO Allow user to force any of the 3 encoders
 #ifdef XCALIBUR
     xb_encoder = ENCODER_XCALIBUR;
@@ -42,13 +35,14 @@ int main(void)
     xb_encoder = ENCODER_CONEXANT;
 #endif
 
-    uint8_t error = init_adv();
+    HAL_Init();
+    SystemClock_Config();
 
-    if (error)
-    {
-        debug_log("Encountered error when setting up ADV7511\r\n");
-    }
+    debug_init();
+    init_gpio();
+    led_init();
 
+    init_adv();
     smbus_i2c_init();
 
     apply_csc((uint8_t *)identityMatrix);
@@ -92,25 +86,25 @@ int main(void)
             {
                 vic &= ADV7511_VIC_CHANGED_CLEAR;
 
-                if (vic == ADV7511_VIC_VGA_640x480_4_3)
+                if (vic == VIC_01_VGA_640x480_4_3)
                 {
                     set_video_mode_vic(XBOX_VIDEO_VGA, false, false);
                 }
-                else if (vic == ADV7511_VIC_480p_4_3 || vic == ADV7511_VIC_UNAVAILABLE)
+                else if (vic == VIC_02_480p_60__4_3 || vic == VIC_00_VIC_Unavailable)
                 {
                     set_video_mode_vic(XBOX_VIDEO_480p_640, false, false);
                 }
-                else if (vic == ADV7511_VIC_480p_16_9)
+                else if (vic == VIC_03_480p_60_16_9)
                 {
                     set_video_mode_vic(XBOX_VIDEO_480p_720, true, false);
                 }
-                else if (vic == ADV7511_VIC_720p_60_16_9)
+                else if (vic == VIC_04_720p_60_16_9)
                 {
                     set_video_mode_vic(XBOX_VIDEO_720p, true, false);
                 }
-                else if (vic == ADV7511_VIC_1080i_60_16_9)
+                else if (vic == VIC_05_1080i_60_16_9)
                 {
-                    set_video_mode_vic(XBOX_VIDEO_1080i, false, true);
+                    set_video_mode_vic(XBOX_VIDEO_1080i, true, true);
                 }
             }
         }
@@ -119,100 +113,97 @@ int main(void)
     }
 }
 
-uint8_t init_adv() {
+void init_adv() {
     adv7511_i2c_init();
 
     HAL_Delay(50);
     // debug_log("\r\nADV7511 Chip Revision %u\r\n", adv7511_read_register(0x00));
-
-    uint8_t error = 0;
 
     // Initialise the encoder object
     adv7511_struct_init(&encoder);
 
     // Force Hot Plug Detect High
     encoder.hot_plug_detect = 1;
-    error |= adv7511_write_register(0xD6, 0b11000000);
+    adv7511_write_register(0xD6, 0b11000000);
 
     // Power up the encoder and set fixed registers
-    error |= adv7511_power_up(&encoder);
+    adv7511_power_up(&encoder);
     HAL_Delay(50);
 
     // Set video input mode to YCbCr 444, 12bit databus DDR
-    error |= adv7511_update_register(0x15, 0b00001111, 0b000000101); //ID=5
+    adv7511_update_register(0x15, 0b00001111, 0b000000101); //ID=5
 
     // Set video style to style 1 (Y[3:0] Cb[7:0] first edge, Cr[7:0] Y[7:4] second edge)
-    error |= adv7511_update_register(0x16, 0b00001100, 0b00001000); //style 1 01 = style 2    10 = style 1  11 = style 3
+    adv7511_update_register(0x16, 0b00001100, 0b00001000); //style 1 01 = style 2    10 = style 1  11 = style 3
 
     // Set DDR Input Edge  first half of pixel data clocking edge, Bit 1 |= 0 for falling edge, 1 for rising edge CHECK
-    error |= adv7511_update_register(0x16, 0b00000010, 0b00000010); //Rising
+    adv7511_update_register(0x16, 0b00000010, 0b00000010); //Rising
 
     // Setup encoder specific stuff
     init_adv_encoder_specific();
 
     // Enable DE generation. This is derived from HSYNC,VSYNC for video active framing
-    error |= adv7511_update_register(0x17, 0b00000001, 0b00000001);
+    adv7511_update_register(0x17, 0b00000001, 0b00000001);
 
     // Set Output Format to 4:4:4
-    error |= adv7511_update_register(0x16, 0b10000000, 0b00000000);
+    adv7511_update_register(0x16, 0b10000000, 0b00000000);
 
     // Start AVI Infoframe Update
-    error |= adv7511_update_register(0x4A, 0b01000000, 0b01000000);
+    adv7511_update_register(0x4A, 0b01000000, 0b01000000);
 
     // Infoframe output format to YCbCr 4:4:4 in infoframe* 10=YCbCr4:4:4, 00=RGB
-    error |= adv7511_update_register(0x55, 0b01100000, 0b01000000);
+    adv7511_update_register(0x55, 0b01100000, 0b01000000);
 
     // Infoframe output aspect ratio default to 4:3 + Active Format Aspect Ratio (same as aspect ratio)
-    error |= adv7511_write_register(0x56, 0b00011000);
+    adv7511_write_register(0x56, 0b00011000);
 
     // END AVI Infoframe Update
-    error |= adv7511_update_register(0x4A, 0b01000000, 0b00000000);
+    adv7511_update_register(0x4A, 0b01000000, 0b00000000);
 
     // Output Color Space Selection 0 = RGB 1 = YCbCr
-    error |= adv7511_update_register(0x16, 0b00000001, 0b00000001);
+    adv7511_update_register(0x16, 0b00000001, 0b00000001);
 
     // Set Output to HDMI Mode (Instead of DVI Mode)
-    error |= adv7511_update_register(0xAF, 0b00000010, 0b00000010);
+    adv7511_update_register(0xAF, 0b00000010, 0b00000010);
 
     // Enable General Control Packet CHECK
-    error |= adv7511_update_register(0x40, 0b10000000, 0b10000000);
+    adv7511_update_register(0x40, 0b10000000, 0b10000000);
 
     // Disable CSC
     // error |= adv7511_update_register(0x18, 0xFF, 0x00);
 
     // SETUP AUDIO
     // Set 48kHz Audio clock CHECK (N Value)
-    error |= adv7511_update_register(0x01, 0xFF, 0x00);
-    error |= adv7511_update_register(0x02, 0xFF, 0x18);
-    error |= adv7511_update_register(0x03, 0xFF, 0x00);
+    adv7511_update_register(0x01, 0xFF, 0x00);
+    adv7511_update_register(0x02, 0xFF, 0x18);
+    adv7511_update_register(0x03, 0xFF, 0x00);
 
     // Set SPDIF audio source
-    error |= adv7511_update_register(0x0A, 0b01110000, 0b00010000);
+    adv7511_update_register(0x0A, 0b01110000, 0b00010000);
 
     // SPDIF enable
-    error |= adv7511_update_register(0x0B, 0b10000000, 0b10000000);
+    adv7511_update_register(0x0B, 0b10000000, 0b10000000);
 
     const uint8_t ddr_edge = 1;
-    error |= adv7511_update_register(0x16, 0b00000010, ddr_edge << 1);
-    return error;
+    adv7511_update_register(0x16, 0b00000010, ddr_edge << 1);
 }
 
 void init_adv_encoder_specific() {
     if (xb_encoder == ENCODER_XCALIBUR)
     {
         // Normal Bus Order, DDR Alignment D[35:18] (left aligned)
-        adv7511_write_register_nc(0x48, 0b00100000);
+        adv7511_write_register(0x48, 0b00100000);
         // Disable DDR Negative Edge CLK Delay, with 0ns delay. No sync pulse
-        adv7511_write_register_nc(0xD0, 0b00111100);
+        adv7511_write_register(0xD0, 0b00111100);
         // -0.4ns clock delay
-        adv7511_write_register_nc(0xBA, 0b01000000);
+        adv7511_write_register(0xBA, 0b01000000);
     } else {
         // LSB .... MSB Reverse Bus Order, DDR Alignment D[17:0] (right aligned)
-        adv7511_write_register_nc(0x48, 0b01000000);
+        adv7511_write_register(0x48, 0b01000000);
         // Enable DDR Negative Edge CLK Delay, with 0ns delay. No sync pulse
-        adv7511_write_register_nc(0xD0, 0b10111100);
+        adv7511_write_register(0xD0, 0b10111100);
         // No clock delay
-        adv7511_write_register_nc(0xBA, 0b01100000);
+        adv7511_write_register(0xBA, 0b01100000);
     }
 }
 
@@ -290,7 +281,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region) {
     bool interlaced = (mode == 0x880E0C03); // The only mode that is interlaced on the bus is 1080i
 
     // Force pixel repeat to 1
-    adv7511_write_register_nc(0x3B, 0b01100000);
+    adv7511_write_register(0x3B, 0b01100000);
     set_adv_video_mode(vs, widescreen, interlaced);
 }
 
@@ -325,34 +316,32 @@ void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool in
 
 inline void set_adv_video_mode(const video_setting * const vs, const bool widescreen, const bool interlaced) {
     if (widescreen) {
-        // Infoframe output aspect ratio default to 16:9
-        adv7511_write_register_nc(0x56, 0b00101000);
+        adv7511_write_register(0x56, 0b00101000); // 16:9
     } else {
-        // Infoframe output aspect ratio default to 4:3
-        adv7511_write_register_nc(0x56, 0b00011000);
+        adv7511_write_register(0x56, 0b00011000); // 4:3
     }
 
     if (interlaced) {
         // Set interlace offset
-        adv7511_update_register_nc(0x37, 0b11100000, 0 << 5);
+        adv7511_update_register(0x37, 0b11100000, 0 << 5);
         // Offset for Sync Adjustment Vsync Placement
-        adv7511_update_register_nc(0xDC, 0b11100000, 0 << 5);
+        adv7511_update_register(0xDC, 0b11100000, 0 << 5);
     }
 
-    adv7511_write_register_nc(0x35, (uint8_t)(vs->delay_hs >> 2));
-    adv7511_write_register_nc(0x36, ((0b00111111 & (uint8_t)vs->delay_vs)) | (0b11000000 & (uint8_t)(vs->delay_hs << 6)));
-    adv7511_update_register_nc(0x37, 0b00011111, (uint8_t)(vs->active_w >> 7)); // 0x37 is shared with interlaced
-    adv7511_write_register_nc(0x38, (uint8_t)(vs->active_w << 1));
-    adv7511_write_register_nc(0x39, (uint8_t)(vs->active_h >> 4));
-    adv7511_write_register_nc(0x3A, (uint8_t)(vs->active_h << 4));
+    adv7511_write_register(0x35, (uint8_t)(vs->delay_hs >> 2));
+    adv7511_write_register(0x36, ((0b00111111 & (uint8_t)vs->delay_vs)) | (0b11000000 & (uint8_t)(vs->delay_hs << 6)));
+    adv7511_update_register(0x37, 0b00011111, (uint8_t)(vs->active_w >> 7)); // 0x37 is shared with interlaced
+    adv7511_write_register(0x38, (uint8_t)(vs->active_w << 1));
+    adv7511_write_register(0x39, (uint8_t)(vs->active_h >> 4));
+    adv7511_write_register(0x3A, (uint8_t)(vs->active_h << 4));
 
     // Set the vic from the table
-    adv7511_write_register_nc(0x3C, vs->vic);
-    // debug_log("Actual Pixel Repetition : 0x%02x\r\n", (adv7511_read_register(0x3D) & 0xC0) >> 6);
-    // debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);
+    adv7511_write_register(0x3C, vs->vic);
+    debug_log("Actual Pixel Repetition : 0x%02x\r\n", (adv7511_read_register(0x3D) & 0xC0) >> 6);
+    debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);
 }
 
-//TODO split this out
+// TODO split this out
 static void init_gpio(void)
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};

@@ -33,13 +33,13 @@ uint8_t adv7511_read_register(const uint8_t address)
 
     if (status != HAL_OK)
     {
-        debug_log("Error with HAL_I2C_Mem_Read %u\r\n", status);
+        debug_log("adv7511_write_register failure %u\r\n", address);
     }
 
     return register_value;
 }
 
-uint8_t adv7511_write_register(const uint8_t address, uint8_t value)
+void adv7511_write_register(const uint8_t address, uint8_t value)
 {
     I2C_HandleTypeDef *i2c = adv7511_i2c_instance();
 
@@ -53,27 +53,11 @@ uint8_t adv7511_write_register(const uint8_t address, uint8_t value)
                                100); //Timeout (ms)
     if (status != HAL_OK)
     {
-        debug_log("Error with HAL_I2C_Mem_Write %u\r\n", status);
-        return 1;
+        debug_log("adv7511_write_register failure %u:%u\r\n", address, value);
     }
-
-    return 0;
 }
 
-void adv7511_write_register_nc(const uint8_t address, uint8_t value)
-{
-    I2C_HandleTypeDef *i2c = adv7511_i2c_instance();
-
-    (void) HAL_I2C_Mem_Write(i2c,
-                             ADV7511_MAIN_I2C_ADDR,
-                             address,
-                             0x01, //Memory Address Size
-                             &value,
-                             0x01, //Bytes to send
-                             100); //Timeout (ms)
-}
-
-uint8_t adv7511_write_cec(const uint8_t address, uint8_t value)
+void adv7511_write_cec(const uint8_t address, uint8_t value)
 {
     I2C_HandleTypeDef *i2c = adv7511_i2c_instance();
 
@@ -87,26 +71,11 @@ uint8_t adv7511_write_cec(const uint8_t address, uint8_t value)
                                100); //Timeout (ms)
     if (status != HAL_OK)
     {
-        debug_log("Error with HAL_I2C_Mem_Write %u\r\n", status);
-        return 1;
+        debug_log("adv7511_write_cec failure %u:%u\r\n", address, value);
     }
-
-    return 0;
 }
 
-uint8_t adv7511_update_register(const uint8_t address, const uint8_t mask, uint8_t new_value)
-{
-    uint8_t working_value;
-    uint8_t register_value = adv7511_read_register(address);
-
-    working_value = register_value & ~mask;
-    new_value &= mask;
-    new_value |= working_value;
-
-    return adv7511_write_register(address, new_value);
-}
-
-void adv7511_update_register_nc(const uint8_t address, const uint8_t mask, uint8_t new_value)
+void adv7511_update_register(const uint8_t address, const uint8_t mask, uint8_t new_value)
 {
     uint8_t working_value;
     uint8_t register_value = adv7511_read_register(address);
@@ -118,9 +87,8 @@ void adv7511_update_register_nc(const uint8_t address, const uint8_t mask, uint8
     adv7511_write_register(address, new_value);
 }
 
-uint8_t adv7511_power_up(adv7511 *encoder)
+void adv7511_power_up(adv7511 *encoder)
 {
-    uint8_t status;
     /* ADI recommended values for proper operation. */
     static const uint8_t add = 0, val = 1, msk = 2;
 
@@ -143,29 +111,18 @@ uint8_t adv7511_power_up(adv7511 *encoder)
     {
         for (uint8_t i = 0; i < sizeof(adv7511_startup) / 3; i++)
         {
-            status = adv7511_update_register(adv7511_startup[i][add],
-                                             adv7511_startup[i][msk],
-                                             adv7511_startup[i][val]);
-
-            if (status != 0)
-            {
-                debug_log("Error with HAL_I2C_Master_Transmit %u\r\n", status);
-                return 1;
-            }
+            adv7511_update_register(adv7511_startup[i][add],
+                                    adv7511_startup[i][msk],
+                                    adv7511_startup[i][val]);
         }
         HAL_Delay(5);
     }
-
-    return 0;
 }
 
-uint8_t apply_csc(const uint8_t * const coefficients)
+void apply_csc(const uint8_t * const coefficients)
 {
-    uint8_t error = 0;
     for (uint8_t i = 0x18; i <= 0x2F; i++)
     {
-        error |= adv7511_update_register(i, 0xFF, coefficients[i - 0x18]);
+        adv7511_update_register(i, 0xFF, coefficients[i - 0x18]);
     }
-
-    return error;
 }

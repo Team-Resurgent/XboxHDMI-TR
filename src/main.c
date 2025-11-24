@@ -70,7 +70,8 @@ int main(void)
     }
 }
 
-void init_adv() {
+void init_adv()
+{
     adv7511_i2c_init();
 
     HAL_Delay(50);
@@ -145,7 +146,8 @@ void init_adv() {
     adv7511_update_register(0x16, 0b00000010, ddr_edge << 1);
 }
 
-void init_adv_encoder_specific() {
+void init_adv_encoder_specific()
+{
     if (xb_encoder == ENCODER_XCALIBUR)
     {
         // Normal Bus Order, DDR Alignment D[35:18] (left aligned)
@@ -219,7 +221,8 @@ inline void stand_alone_loop()
     }
 }
 
-void adv_handle_interrupts() {
+void adv_handle_interrupts()
+{
     if (encoder.interrupt)
     {
         uint8_t interrupt_register = adv7511_read_register(0x96);
@@ -247,7 +250,8 @@ void adv_handle_interrupts() {
     }
 }
 
-void set_video_mode_bios(const uint32_t mode, const video_region region) {
+void set_video_mode_bios(const uint32_t mode, const video_region region)
+{
     const video_setting* vs = NULL;
     switch (xb_encoder) {
         case ENCODER_CONEXANT:
@@ -297,7 +301,8 @@ void set_video_mode_bios(const uint32_t mode, const video_region region) {
     set_adv_video_mode(vs, widescreen, interlaced);
 }
 
-void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced) {
+void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced)
+{
     if (mode > XBOX_VIDEO_1080i) {
         debug_log("Invalid video mode for VIC\r\n");
         return;
@@ -326,7 +331,8 @@ void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool in
     set_adv_video_mode(vs, widescreen, interlaced);
 }
 
-inline void set_adv_video_mode(const video_setting * const vs, const bool widescreen, const bool interlaced) {
+inline void set_adv_video_mode(const video_setting * const vs, const bool widescreen, const bool interlaced)
+{
     if (widescreen) {
         adv7511_write_register(0x56, 0b00101000); // 16:9
     } else {

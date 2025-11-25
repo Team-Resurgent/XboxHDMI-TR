@@ -365,7 +365,7 @@ const bios_mode video_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     // Others
     {0x88070701, { 95, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_480P
     {0x88110F01, { 95, 36,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_FPAR_480P
-    {0x88080801, { 95, 25,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_720x480_480P
+    {0x88080801, { 95, 36,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_720x480_480P
 };
 
 // VIC mode values

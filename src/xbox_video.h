@@ -131,7 +131,7 @@ const bios_mode video_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x48060617, {137, 42,  720,  576, VIC_17_576p_50__4_3}}, // XBOX_VIDEO_720x576_PAL_I_YPrPb            (Tested)
     {0x58060617, {137, 42,  720,  576, VIC_18_576p_50_16_9}}, // XBOX_VIDEO_720x576_PAL_I_YPrPb_16x9       (Tested)
     {0x880B0A02, {259, 25, 1280,  720, VIC_04_720p_60_16_9}}, // XBOX_VIDEO_1280x720P_720P                 (Tested)
-    {0x880E0C03, {186, 22, 1920,  540, VIC_05_1080i_60_16_9}}, // XBOX_VIDEO_1920x1080I_1080I              (Tested - cropped vertically)
+    {0x880E0C03, {186, 22, 1920,  540, VIC_05_1080i_60_16_9}}, // XBOX_VIDEO_1920x1080I_1080I              (Tested - cropped vertically, jumps vertically vsync issue?)
     // Others
     {0x88070701, { 95, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_480P                   (Tested)
     {0x88110F01, { 95, 36,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_FPAR_480P              (Tested, pillar boxed)

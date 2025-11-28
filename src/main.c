@@ -138,7 +138,7 @@ void init_adv_encoder_specific()
     {
         // Normal Bus Order, DDR Alignment D[35:18] (left aligned)
         adv7511_write_register(0x48, 0b00100000);
-        // Disable DDR Negative Edge CLK Delay, with 0ns delay. No sync pulse
+        // Disable DDR Negative Edge CLK Delay, with 0ps delay. No sync pulse
         adv7511_write_register(0xD0, 0b00111100);
         // -0.4ns clock delay
         adv7511_write_register(0xBA, 0b01000000);
@@ -148,8 +148,8 @@ void init_adv_encoder_specific()
     if (xb_encoder == ENCODER_FOCUS) {
         // LSB .... MSB Reverse Bus Order, DDR Alignment D[17:0] (right aligned)
         adv7511_write_register(0x48, 0b01000000);
-        // Enable DDR Negative Edge CLK Delay, with 0ns delay. No sync pulse
-        adv7511_write_register(0xD0, 0b10111100);
+        // Enable DDR Negative Edge CLK Delay, with -400ps delay. No sync pulse
+        adv7511_write_register(0xD0, 0b10101100);
         // -0.4ns clock delay
         adv7511_write_register(0xBA, 0b01000000);
         return;
@@ -158,7 +158,7 @@ void init_adv_encoder_specific()
     if (xb_encoder == ENCODER_CONEXANT) {
         // LSB .... MSB Reverse Bus Order, DDR Alignment D[17:0] (right aligned)
         adv7511_write_register(0x48, 0b01000000);
-        // Enable DDR Negative Edge CLK Delay, with 0ns delay. No sync pulse
+        // Enable DDR Negative Edge CLK Delay, with 0ps delay. No sync pulse
         adv7511_write_register(0xD0, 0b10111100);
         // No clock delay
         adv7511_write_register(0xBA, 0b01100000);

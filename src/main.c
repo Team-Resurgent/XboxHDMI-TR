@@ -148,10 +148,10 @@ void init_adv_encoder_specific()
     if (xb_encoder == ENCODER_FOCUS) {
         // LSB .... MSB Reverse Bus Order, DDR Alignment D[17:0] (right aligned)
         adv7511_write_register(0x48, 0b01000000);
-        // Enable DDR Negative Edge CLK Delay, with -400ps delay. No sync pulse
-        adv7511_write_register(0xD0, 0b10101100);
-        // -0.4ns clock delay
-        adv7511_write_register(0xBA, 0b01000000);
+        // Enable DDR Negative Edge CLK Delay, with 0ps delay. No sync pulse
+        adv7511_write_register(0xD0, 0b10111100);
+        // No clock delay
+        adv7511_write_register(0xBA, 0b01100000);
         return;
     }
 
@@ -339,10 +339,10 @@ inline void set_adv_video_mode(const video_setting * const vs, const bool widesc
     }
 
     if (interlaced) {
-        // Set interlace offset
-        adv7511_update_register(0x37, 0b11100000, 0 << 5);
+        // Interlace Offset For DE Generation
+        adv7511_update_register(0x37, 0b11100000, 0b00000000);
         // Offset for Sync Adjustment Vsync Placement
-        adv7511_update_register(0xDC, 0b11100000, 0 << 5);
+        adv7511_update_register(0xDC, 0b11100000, 0b00000000);
     }
 
     adv7511_write_register(0x35, (uint8_t)(vs->delay_hs >> 2));

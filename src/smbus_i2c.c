@@ -114,20 +114,6 @@ static void init_crc32_table(void)
     crc32_table_initialized = true;
 }
 
-// -------------------- CRC32 Calculation --------------------
-static uint32_t calculate_crc32(const uint8_t *data, uint32_t length)
-{
-    if (!crc32_table_initialized)
-        init_crc32_table();
-
-    uint32_t crc = 0xFFFFFFFF;
-    for (uint32_t i = 0; i < length; i++)
-    {
-        crc = (crc >> 8) ^ crc32_table[(crc ^ data[i]) & 0xFF];
-    }
-    return crc ^ 0xFFFFFFFF;
-}
-
 // -------------------- Flash Programming --------------------
 static HAL_StatusTypeDef flash_erase_page(uint32_t page_addr)
 {
@@ -375,10 +361,31 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
             // If we don't have a response yet, try to get one
             if (!(state & (SMBUS_SMS_READY | SMBUS_SMS_RESPONSE_READY)) && currentCommand != -1)
             {
-                // Prepare response if we have a command
-                if (currentCommand != -1)
+                // For firmware read command, prepare response fresh each time (address auto-increments)
+                if (currentCommand == I2C_FW_UPDATE_READ_FIRMWARE)
                 {
-                    // Response already prepared in SlaveRxCpltCallback
+                    // Prepare response fresh for each read
+                    if (fw_read_addr >= APP_START_ADDR && fw_read_addr < APP_END_ADDR)
+                    {
+                        const uint8_t *flash_ptr = (const uint8_t *)fw_read_addr;
+                        responseByte = *flash_ptr;
+                        fw_read_addr++;
+                        // Wrap around if we exceed end address
+                        if (fw_read_addr > APP_END_ADDR)
+                        {
+                            fw_read_addr = APP_START_ADDR;
+                        }
+                        state |= SMBUS_SMS_RESPONSE_READY;
+                    }
+                    else
+                    {
+                        responseByte = 0xFF;  // Invalid address
+                        state |= SMBUS_SMS_RESPONSE_READY;
+                    }
+                }
+                else if (currentCommand != -1)
+                {
+                    // Response already prepared in SlaveRxCpltCallback for other commands
                     state |= SMBUS_SMS_RESPONSE_READY;
                 }
                 else
@@ -533,22 +540,10 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
                 }
                 case I2C_FW_UPDATE_READ_FIRMWARE:
                 {
-                    // Read byte from flash at current address and auto-increment
-                    if (fw_read_addr >= APP_START_ADDR && fw_read_addr < APP_END_ADDR)
-                    {
-                        const uint8_t *flash_ptr = (const uint8_t *)fw_read_addr;
-                        responseByte = *flash_ptr;
-                        fw_read_addr++;
-                        // Wrap around if we exceed end address
-                        if (fw_read_addr > APP_END_ADDR)
-                        {
-                            fw_read_addr = APP_START_ADDR;
-                        }
-                    }
-                    else
-                    {
-                        responseByte = 0xFF;  // Invalid address
-                    }
+                    // For firmware read, response is prepared fresh in AddrCallback for each read
+                    // This allows sequential reads with auto-incrementing address
+                    // Just mark that we have a valid command, response will be prepared on read
+                    responseByte = 0x00;  // Dummy value, will be overwritten in AddrCallback
                     break;
                 }
                 case I2C_FW_UPDATE_READ_ADDR_LOW:

@@ -131,7 +131,7 @@ const bios_mode video_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     // 640x576
     {0x48050516, {142, 41,  640,  576, VIC_17_576p_50__4_3}}, // XBOX_VIDEO_640x576_PAL_I_YPrPb            (Tested)
     {0x58050516, {142, 41,  640,  576, VIC_18_576p_50_16_9}}, // XBOX_VIDEO_640x576_PAL_I_YPrPb_16x9       (Tested)
-    {0x4812101D, {130, 36,  640,  576, VIC_17_576p_50__4_3}}, // XBOX_VIDEO_640x576_FPAR_PAL_I_YPrPb       {}
+    {0x4812101D, {130, 36,  640,  576, VIC_17_576p_50__4_3}}, // XBOX_VIDEO_640x576_FPAR_PAL_I_YPrPb       ()
     {0x5812101D, {130, 36,  640,  576, VIC_18_576p_50_16_9}}, // XBOX_VIDEO_640x576_FPAR_PAL_I_YPrPb_16x9  ()
     // 720x480
     {0x88080801, { 95, 36,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_720x480_480P                   (Tested)

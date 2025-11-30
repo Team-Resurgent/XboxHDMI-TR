@@ -71,7 +71,7 @@ const bios_mode video_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     // 720p
     {0x880B0A02, {299, 25, 1280,  720, VIC_04_720p_60_16_9}}, // XBOX_VIDEO_1280x720P_720P                 ()
     // 1080i
-    {0x880E0C03, {185, 22, 1920,  540, VIC_05_1080i_60_16_9}}, // XBOX_VIDEO_1920x1080I_1080I              ()
+    {0x880E0C03, {233, 22, 1920,  540, VIC_05_1080i_60_16_9}}, // XBOX_VIDEO_1920x1080I_1080I              ()
 };
 
 const bios_mode video_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
@@ -109,7 +109,7 @@ const bios_mode video_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     // 720p
     {0x880B0A02, {259, 25, 1280,  720, VIC_04_720p_60_16_9}}, // XBOX_VIDEO_1280x720P_720P                 ()
     // 1080i
-    {0x880E0C03, {185, 22, 1920,  540, VIC_05_1080i_60_16_9}}, // XBOX_VIDEO_1920x1080I_1080I              ()
+    {0x880E0C03, {232, 22, 1920,  540, VIC_05_1080i_60_16_9}}, // XBOX_VIDEO_1920x1080I_1080I              ()
 };
 
 const bios_mode video_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {

@@ -334,7 +334,7 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                     {
                         memcpy(&settings, &scratchSettings, sizeof(SMBusSettings));
                         video_mode_update_pending = true;
-                        //debug_ring_log("SMBus: encoder=%02X region=%02X mode=%08X title=%08X\r\n", settings.encoder, settings.region, settings.mode, settings.titleid);
+                        //debug_ring_log("SMBus: encoder=%02X region=%02X mode=%08X title=%08X avinfo=%08X\r\n", settings.encoder, settings.region, settings.mode, settings.titleid, settings.avinfo);
                     }
                     break;
                 }

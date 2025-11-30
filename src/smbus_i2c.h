@@ -11,6 +11,7 @@ typedef struct
     uint8_t region;
     uint32_t mode;
     uint32_t titleid;
+    uint32_t avinfo;
 } SMBusSettings;
 #pragma pack()
 

@@ -138,30 +138,21 @@ void init_adv_encoder_specific()
     {
         // Normal Bus Order, DDR Alignment D[35:18] (left aligned)
         adv7511_write_register(0x48, 0b00100000);
-        // Disable DDR Negative Edge CLK Delay, with 0ps delay. No sync pulse
-        adv7511_write_register(0xD0, 0b00111100);
+        // Disable DDR Negative Edge CLK Delay, with 0ps delay
+        // No sync pulse. Data enable, then sync
+        adv7511_write_register(0xD0, 0b00111110);
         // -0.4ns clock delay
         adv7511_write_register(0xBA, 0b01000000);
         return;
-    }
-
-    if (xb_encoder == ENCODER_FOCUS) {
+    } else {
         // LSB .... MSB Reverse Bus Order, DDR Alignment D[17:0] (right aligned)
         adv7511_write_register(0x48, 0b01000000);
-        // Enable DDR Negative Edge CLK Delay, with 0ps delay. No sync pulse
-        adv7511_write_register(0xD0, 0b10111100);
+        // Enable DDR Negative Edge CLK Delay, with 0ps delay
+        // No sync pulse. Data enable, then sync
+        adv7511_write_register(0xD0, 0b10111110);
         // No clock delay
         adv7511_write_register(0xBA, 0b01100000);
         return;
-    }
-
-    if (xb_encoder == ENCODER_CONEXANT) {
-        // LSB .... MSB Reverse Bus Order, DDR Alignment D[17:0] (right aligned)
-        adv7511_write_register(0x48, 0b01000000);
-        // Enable DDR Negative Edge CLK Delay, with 0ps delay. No sync pulse
-        adv7511_write_register(0xD0, 0b10111100);
-        // No clock delay
-        adv7511_write_register(0xBA, 0b01100000);
     }
 }
 
@@ -402,6 +393,9 @@ inline void set_adv_video_mode(const video_setting * const vs, const video_sync_
             adv7511_update_register(0x41, 0b00000010, 0b00000000);
         }
     }
+
+    // Fixes jumping for 1080i, somehow doing this in the init sequence doesnt stick or gets reset
+    adv7511_update_register(0xD0, 0b00000010, 0b00000010);
 
     // Set the vic from the table
     adv7511_write_register(0x3C, vs->vic);

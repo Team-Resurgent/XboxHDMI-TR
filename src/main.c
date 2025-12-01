@@ -22,7 +22,7 @@ void stand_alone_loop();
 
 void set_video_mode_vic(const uint8_t mode, const bool wide, const bool interlaced);
 void set_video_mode_bios(const uint32_t mode, const video_region region);
-void set_adv_video_mode(const video_setting * const vs, const bool widescreen, const bool interlaced);
+void set_adv_video_mode(const video_setting * const vs, const video_sync_setting * const vss, const bool widescreen, const bool interlaced);
 
 void SystemClock_Config(void);
 static void init_gpio(void);
@@ -252,29 +252,57 @@ void adv_handle_interrupts()
 void set_video_mode_bios(const uint32_t mode, const video_region region)
 {
     const video_setting* vs = NULL;
+    const video_sync_setting* vss = NULL;
     switch (xb_encoder) {
         case ENCODER_CONEXANT:
+            // Look up main table
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
                 if (video_settings_conexant_bios[i].mode == mode) {
                     vs = &video_settings_conexant_bios[i].vs;
                     break;
                 }
             }
+
+            // Look up special sync settings if present
+            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_SYNC_COUNT; ++i) {
+                if (video_sync_settings_conexant_bios[i].mode == mode) {
+                    vss = &video_sync_settings_conexant_bios[i].vss;
+                    break;
+                }
+            }
             break;
 
         case ENCODER_FOCUS:
+            // Look up main table
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
                 if (video_settings_focus_bios[i].mode == mode) {
                     vs = &video_settings_focus_bios[i].vs;
                     break;
                 }
             }
+
+            // Look up special sync settings if present
+            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_SYNC_COUNT; ++i) {
+                if (video_sync_settings_focus_bios[i].mode == mode) {
+                    vss = &video_sync_settings_focus_bios[i].vss;
+                    break;
+                }
+            }
             break;
 
         case ENCODER_XCALIBUR:
+            // Look up main table
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
                 if (video_settings_xcalibur_bios[i].mode == mode) {
                     vs = &video_settings_xcalibur_bios[i].vs;
+                    break;
+                }
+            }
+
+            // Look up special sync settings if present
+            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_SYNC_COUNT; ++i) {
+                if (video_sync_settings_xcalibur_bios[i].mode == mode) {
+                    vss = &video_sync_settings_xcalibur_bios[i].vss;
                     break;
                 }
             }
@@ -293,11 +321,11 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
     }
 
     bool widescreen = mode & XBOX_VIDEO_WIDESCREEN;
-    bool interlaced = (mode == 0x880E0C03); // The only mode that is interlaced on the bus is 1080i
+    bool interlaced = false; // We dont really care, this is only used for legacy VIC.
 
     // Force pixel repeat to 1
     adv7511_write_register(0x3B, 0b01100000);
-    set_adv_video_mode(vs, widescreen, interlaced);
+    set_adv_video_mode(vs, vss, widescreen, interlaced);
 }
 
 void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced)
@@ -327,22 +355,15 @@ void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool in
     }
 
     debug_log("Set %d mode, widescree %s, interlaced %s\r\n", mode, widescreen ? "true" : "false", interlaced ? "true" : "false");
-    set_adv_video_mode(vs, widescreen, interlaced);
+    set_adv_video_mode(vs, NULL, widescreen, interlaced);
 }
 
-inline void set_adv_video_mode(const video_setting * const vs, const bool widescreen, const bool interlaced)
+inline void set_adv_video_mode(const video_setting * const vs, const video_sync_setting * const vss, const bool widescreen, const bool interlaced)
 {
     if (widescreen) {
         adv7511_write_register(0x56, 0b00101000); // 16:9
     } else {
         adv7511_write_register(0x56, 0b00011000); // 4:3
-    }
-
-    if (interlaced) {
-        // Interlace Offset For DE Generation
-        adv7511_update_register(0x37, 0b11100000, 0b00000000);
-        // Offset for Sync Adjustment Vsync Placement
-        adv7511_update_register(0xDC, 0b11100000, 0b00000000);
     }
 
     adv7511_write_register(0x35, (uint8_t)(vs->delay_hs >> 2));
@@ -351,7 +372,36 @@ inline void set_adv_video_mode(const video_setting * const vs, const bool widesc
     adv7511_write_register(0x38, (uint8_t)(vs->active_w << 1));
     adv7511_write_register(0x39, (uint8_t)(vs->active_h >> 4));
     adv7511_write_register(0x3A, (uint8_t)(vs->active_h << 4));
+
     // Hsync/Vsync duration+porch might be needed at some point, 1.6 FPAR has some pillar boxing
+    if (vss)
+    {
+        adv7511_write_register(0xD7, (uint8_t)(vss->hsync_placement >> 2));
+        adv7511_write_register(0xD8, (uint8_t)(vss->hsync_placement << 6) | (vss->hsync_duration  >> 4));
+        adv7511_write_register(0xD9, (uint8_t)(vss->hsync_duration  << 4) | (vss->vsync_placement >> 6));
+        adv7511_write_register(0xDA, (uint8_t)(vss->vsync_placement << 2) | (vss->vsync_duration  >> 8));
+        adv7511_write_register(0xDB, (uint8_t)(vss->vsync_duration));
+        adv7511_write_register(0xDC, (uint8_t)(vss->interlaced_offset << 5));
+
+        // Enable settings
+        adv7511_update_register(0x41, 0b00000010, 0b00000010);
+    }
+    else
+    {
+        // For VIC mode
+        if (interlaced) {
+            // Interlace Offset For DE Generation
+            adv7511_update_register(0x37, 0b11100000, 0b00000000);
+            // Offset for Sync Adjustment Vsync Placement
+            adv7511_write_register(0xDC, 0b00000000);
+
+            // Enable settings
+            adv7511_update_register(0x41, 0b00000010, 0b00000010);
+        } else {
+            // Disable manual sync
+            adv7511_update_register(0x41, 0b00000010, 0b00000000);
+        }
+    }
 
     // Set the vic from the table
     adv7511_write_register(0x3C, vs->vic);

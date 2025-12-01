@@ -29,10 +29,24 @@ typedef struct bios_mode {
     uint32_t mode;
     video_setting vs;
 } bios_mode;
+
+typedef struct video_sync_setting {
+    uint16_t hsync_placement;   // 10 bit
+    uint16_t hsync_duration;    // 10 bit
+    uint16_t vsync_placement;   // 10 bit
+    uint16_t vsync_duration;    // 10 bit
+    uint8_t  interlaced_offset; // 3 bit
+} video_sync_setting;
+
+typedef struct bios_mode_sync {
+    uint32_t mode;
+    video_sync_setting vss;
+} bios_mode_sync;
 #pragma pack()
 
 #define XBOX_VIDEO_WIDESCREEN 0x10000000
-#define XBOX_VIDEO_BIOS_MODE_COUNT 29
+#define XBOX_VIDEO_BIOS_MODE_COUNT 29 // Hard coded so all encoders match up
+#define XBOX_VIDEO_BIOS_MODE_SYNC_COUNT 1
 
 // Bios mode values
 // Note, we should only care about YPrPb values, so the rest is not present in the table
@@ -74,6 +88,10 @@ const bios_mode video_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x880E0C03, {233, 22, 1920,  540, VIC_05_1080i_60_16_9}}, // XBOX_VIDEO_1920x1080I_1080I              ()
 };
 
+const bios_mode_sync video_sync_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {
+    {0xFFFFFFFF, {0, 0, 0,  0, 0}}, // XBOX_VIDEO_1920x1080I_1080I              ()
+};
+
 const bios_mode video_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     // 640x480
     {0x0801010D, {118, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_NTSC_YPrPb             ()
@@ -112,6 +130,10 @@ const bios_mode video_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x880E0C03, {232, 22, 1920,  540, VIC_05_1080i_60_16_9}}, // XBOX_VIDEO_1920x1080I_1080I              ()
 };
 
+const bios_mode_sync video_sync_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {
+    {0xFFFFFFFF, {0, 0, 0, 0, 0}}, // XBOX_VIDEO_1920x1080I_1080I              ()
+};
+
 const bios_mode video_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     // 640x480
     {0x0801010D, { 95, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_NTSC_YPrPb             ()
@@ -148,6 +170,10 @@ const bios_mode video_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x880B0A02, {259, 25, 1280,  720, VIC_04_720p_60_16_9}}, // XBOX_VIDEO_1280x720P_720P                 (Tested)
     // 1080i
     {0x880E0C03, {186, 22, 1920,  540, VIC_05_1080i_60_16_9}}, // XBOX_VIDEO_1920x1080I_1080I              (Tested - cropped vertically, jumps vertically vsync issue?)
+};
+
+const bios_mode_sync video_sync_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {
+    {0xFFFFFFFF, {0, 0,  0, 0, 0}}, // XBOX_VIDEO_1920x1080I_1080I              ()
 };
 
 // VIC mode values

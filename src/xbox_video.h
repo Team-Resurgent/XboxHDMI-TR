@@ -173,7 +173,7 @@ const bios_mode video_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
 };
 
 const bios_mode_sync video_sync_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {
-    {0x880E0C03, {44, 88,  2,  5, 0}}, // XBOX_VIDEO_1920x1080I_1080I              (Tested)
+    {0x880E0C03, {44, 88,  2,  5, 0}}, // CEA-861 XBOX_VIDEO_1920x1080I_1080I              (Tested)
 };
 
 // VIC mode values

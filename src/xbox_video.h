@@ -64,7 +64,7 @@ const bios_mode video_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x18010119, {118, 36,  640,  480, VIC_03_480p_60_16_9}}, // XBOX_VIDEO_640x480_PAL_60_YPrPb_16x9      ()
     {0x080F0D1B, {118, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_FPAR_PAL_60_YPrPb      ()
     {0x180F0D1B, {118, 36,  640,  480, VIC_03_480p_60_16_9}}, // XBOX_VIDEO_640x480_FPAR_PAL_60_YPrPb_16x9 ()
-    {0x88070701, {118, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_480P                   ()
+    {0x88070701, {119, 36,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_480P                   ()
     {0x88110F01, {118, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_FPAR_480P              ()
     // 640x576
     {0x4812101D, {118, 25,  640,  576, VIC_17_576p_50__4_3}}, // XBOX_VIDEO_640x576_FPAR_PAL_I_YPrPb       ()
@@ -78,7 +78,7 @@ const bios_mode video_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x58040415, {118, 36,  720,  480, VIC_18_576p_50_16_9}}, // XBOX_VIDEO_720x480_PAL_I_YPrPb_16x9       ()
     {0x0802021A, {118, 36,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_720x480_PAL_60_YPrPb           ()
     {0x1802021A, {118, 36,  720,  480, VIC_03_480p_60_16_9}}, // XBOX_VIDEO_720x480_PAL_60_YPrPb_16x9      ()
-    {0x88080801, {118, 36,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_720x480_480P                   ()
+    {0x88080801, {119, 36,  720,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_720x480_480P                   ()
     // 720x576
     {0x48060617, {118, 25,  720,  576, VIC_17_576p_50__4_3}}, // XBOX_VIDEO_720x576_PAL_I_YPrPb            ()
     {0x58060617, {118, 25,  720,  576, VIC_18_576p_50_16_9}}, // XBOX_VIDEO_720x576_PAL_I_YPrPb_16x9       ()

@@ -314,7 +314,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
     bool widescreen = mode & XBOX_VIDEO_WIDESCREEN;
     bool interlaced = false; // We dont really care, this is only used for legacy VIC.
 
-    // Force pixel repeat to 1
+    // Force pixel repeat to 1 (for forcing VIC)
     adv7511_write_register(0x3B, 0b01100000);
     set_adv_video_mode(vs, vss, widescreen, interlaced);
 }

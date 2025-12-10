@@ -94,9 +94,9 @@ const bios_mode_sync video_sync_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_SYNC
 
 const bios_mode video_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     // 640x480
-    {0x0801010D, {181, 25,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_NTSC_YPrPb             ()
+    {0x0801010D, {181, 25,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_NTSC_YPrPb             () // OK e.g Metal Slug 3
     {0x1801010D, {118, 36,  640,  480, VIC_03_480p_60_16_9}}, // XBOX_VIDEO_640x480_NTSC_YPrPb_16x9        ()
-    {0x080F0D12, {118, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_FPAR_NTSC_YPrPb        ()
+    {0x080F0D12, {181, 25,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_FPAR_NTSC_YPrPb        () // OK e.g. 007 Everything or Nothing 
     {0x180F0D12, {118, 36,  640,  480, VIC_03_480p_60_16_9}}, // XBOX_VIDEO_640x480_FPAR_NTSC_YPrPb_16x9   ()
     {0x48030314, {118, 36,  640,  480, VIC_17_576p_50__4_3}}, // XBOX_VIDEO_640x480_PAL_I_YPrPb            ()
     {0x58030314, {118, 36,  640,  480, VIC_18_576p_50_16_9}}, // XBOX_VIDEO_640x480_PAL_I_YPrPb_16x9       ()

@@ -94,7 +94,7 @@ const bios_mode_sync video_sync_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_SYNC
 
 const bios_mode video_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     // 640x480
-    {0x0801010D, {118, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_NTSC_YPrPb             ()
+    {0x0801010D, {195, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_NTSC_YPrPb             ()
     {0x1801010D, {118, 36,  640,  480, VIC_03_480p_60_16_9}}, // XBOX_VIDEO_640x480_NTSC_YPrPb_16x9        ()
     {0x080F0D12, {118, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_FPAR_NTSC_YPrPb        ()
     {0x180F0D12, {118, 36,  640,  480, VIC_03_480p_60_16_9}}, // XBOX_VIDEO_640x480_FPAR_NTSC_YPrPb_16x9   ()

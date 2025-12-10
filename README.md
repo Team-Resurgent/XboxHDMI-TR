@@ -14,20 +14,33 @@ More details to come soon...
 
 EqUiNoX
 
-HD+ Program Header Pin Out
+In order to program HD+ connect the following wires...
 
-2 1 - 3V3       NRST
+| Pin Pair | Signal      | Signal      |
+|----------|-------------|-------------|
+| 2 – 1    | NC          | NRST        |
+| 4 – 3    | NC          | NC          |
+| 6 – 5    | GND         | NC          |
+| 8 – 7    | SWDIO       | SWCLK       |
 
-4 3 - OSC OUT   TX
+Note it is recommended you power from motherboard when programming and not use the 3V3 described below.
 
-6 5 - GND       RX
+Full pinout for referecne...
 
-8 7 - SWDIO     SWCLK
+| Pin Pair | Signal      | Signal      |
+|----------|-------------|-------------|
+| 2 – 1    | 3V3         | NRST        |
+| 4 – 3    | OSC OUT     | TX          |
+| 6 – 5    | GND         | RX          |
+| 8 – 7    | SWDIO       | SWCLK       |
 
 To Do:
-
-Finalize stm32g0 support
 
 Enhance functionality (on-going)
 
 EqUiNoX
+
+
+
+
+

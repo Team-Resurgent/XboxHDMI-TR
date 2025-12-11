@@ -10,6 +10,8 @@ Notes:
 
 Ive started to refactor code to make stm32f0 (hd+) + stm32g0 (oxhd) both compilable from the same project, for now stm32f0 is confirmed working.
 
+Ive now added support for Cerbios V3.1.0 which will greatly improve video mode detection.
+
 More details to come soon...
 
 EqUiNoX
@@ -37,8 +39,11 @@ Full pinout for referecne...
 To Do:
 
 Enhance functionality (on-going)
+Check all video modes render correctly (on-going)
+Add ability for stm to be programmed from xbox
 
 EqUiNoX
+
 
 
 

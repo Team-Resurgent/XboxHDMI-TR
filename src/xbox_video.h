@@ -45,6 +45,7 @@ typedef struct bios_mode_sync {
 #pragma pack()
 
 #define XBOX_VIDEO_WIDESCREEN 0x10000000
+#define XBOX_VIDEO_RGB 0x20000000
 #define XBOX_VIDEO_BIOS_MODE_COUNT 29 // Hard coded so all encoders match up
 #define XBOX_VIDEO_BIOS_MODE_SYNC_COUNT 1
 

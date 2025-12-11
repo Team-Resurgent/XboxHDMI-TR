@@ -22,7 +22,7 @@ void stand_alone_loop();
 
 void set_video_mode_vic(const uint8_t mode, const bool wide, const bool interlaced);
 void set_video_mode_bios(const uint32_t mode, const video_region region);
-void set_adv_video_mode(const video_setting * const vs, const video_sync_setting * const vss, const bool widescreen, const bool interlaced);
+void set_adv_video_mode(const video_setting * const vs, const video_sync_setting * const vss, const bool widescreen, const bool interlaced, const bool rgb);
 
 void SystemClock_Config(void);
 static void init_gpio(void);
@@ -313,10 +313,11 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
 
     bool widescreen = mode & XBOX_VIDEO_WIDESCREEN;
     bool interlaced = false; // We dont really care, this is only used for legacy VIC.
+    bool rgb = mode & XBOX_VIDEO_RGB;
 
     // Force pixel repeat to 1 (for forcing VIC)
     adv7511_write_register(0x3B, 0b01100000);
-    set_adv_video_mode(vs, vss, widescreen, interlaced);
+    set_adv_video_mode(vs, vss, widescreen, interlaced, rgb);
 }
 
 void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced)
@@ -346,10 +347,10 @@ void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool in
     }
 
     debug_log("Set %d mode, widescree %s, interlaced %s\r\n", mode, widescreen ? "true" : "false", interlaced ? "true" : "false");
-    set_adv_video_mode(vs, NULL, widescreen, interlaced);
+    set_adv_video_mode(vs, NULL, widescreen, interlaced, false);
 }
 
-inline void set_adv_video_mode(const video_setting * const vs, const video_sync_setting * const vss, const bool widescreen, const bool interlaced)
+inline void set_adv_video_mode(const video_setting * const vs, const video_sync_setting * const vss, const bool widescreen, const bool interlaced, const bool rgb)
 {
     if (widescreen) {
         adv7511_write_register(0x56, 0b00101000); // 16:9
@@ -363,6 +364,15 @@ inline void set_adv_video_mode(const video_setting * const vs, const video_sync_
     adv7511_write_register(0x38, (uint8_t)(vs->active_w << 1));
     adv7511_write_register(0x39, (uint8_t)(vs->active_h >> 4));
     adv7511_write_register(0x3A, (uint8_t)(vs->active_h << 4));
+
+    // Start AVI Infoframe Update
+    adv7511_update_register(0x4A, 0b01000000, 0b01000000);
+    // Infoframe output format to RGB or YCbCr4:4:4
+    adv7511_update_register(0x55, 0b01100000, rgb ? 0b00000000 : 0b01000000);
+    // Set aspect ratio
+    adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);
+    // END AVI Infoframe Update
+    adv7511_update_register(0x4A, 0b01000000, 0b00000000);
 
     // Hsync/Vsync duration+porch might be needed at some point, 1.6 FPAR has some pillar boxing
     if (vss)

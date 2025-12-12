@@ -47,7 +47,7 @@ typedef struct bios_mode_sync {
 #define XBOX_VIDEO_WIDESCREEN 0x10000000
 #define XBOX_VIDEO_RGB 0x20000000
 #define XBOX_VIDEO_BIOS_MODE_COUNT 29 // Hard coded so all encoders match up
-#define XBOX_VIDEO_BIOS_MODE_SYNC_COUNT 1
+#define XBOX_VIDEO_BIOS_MODE_SYNC_COUNT 2
 
 // Bios mode values
 // Note, we should only care about YPrPb values, so the rest is not present in the table
@@ -90,6 +90,7 @@ const bios_mode video_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
 };
 
 const bios_mode_sync video_sync_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {
+    {0x0802020E, {62, 16,  6,  9, 0}},
     {0x880E0C03, {44, 88,  2,  5, 0}}, // XBOX_VIDEO_1920x1080I_1080I              ()
 };
 
@@ -97,7 +98,7 @@ const bios_mode video_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     // 640x480
     {0x0801010D, {181, 25,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_NTSC_YPrPb             () // OK e.g Metal Slug 3
     {0x1801010D, {118, 36,  640,  480, VIC_03_480p_60_16_9}}, // XBOX_VIDEO_640x480_NTSC_YPrPb_16x9        ()
-    {0x080F0D12, {181, 25,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_FPAR_NTSC_YPrPb        () // OK e.g. 007 Everything or Nothing 
+    {0x080F0D12, {181, 25,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_FPAR_NTSC_YPrPb        () // OK e.g. 007 Everything or Nothing
     {0x180F0D12, {118, 36,  640,  480, VIC_03_480p_60_16_9}}, // XBOX_VIDEO_640x480_FPAR_NTSC_YPrPb_16x9   ()
     {0x48030314, {118, 36,  640,  480, VIC_17_576p_50__4_3}}, // XBOX_VIDEO_640x480_PAL_I_YPrPb            ()
     {0x58030314, {118, 36,  640,  480, VIC_18_576p_50_16_9}}, // XBOX_VIDEO_640x480_PAL_I_YPrPb_16x9       ()
@@ -132,6 +133,7 @@ const bios_mode video_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
 };
 
 const bios_mode_sync video_sync_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {
+    {0x0802020E, {62, 16,  6,  9, 0}},
     {0x880E0C03, {44, 88,  2,  5, 0}}, // XBOX_VIDEO_1920x1080I_1080I              ()
 };
 
@@ -174,6 +176,7 @@ const bios_mode video_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
 };
 
 const bios_mode_sync video_sync_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {
+    {0x0802020E, {62, 16,  6,  9, 0}},
     {0x880E0C03, {44, 88,  2,  5, 0}}, // CEA-861 XBOX_VIDEO_1920x1080I_1080I              (Tested)
 };
 

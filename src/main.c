@@ -395,7 +395,6 @@ inline void set_adv_video_mode(const video_setting * const vs, const video_sync_
             adv7511_update_register(0x37, 0b11100000, 0b00000000);
             // Offset for Sync Adjustment Vsync Placement
             adv7511_write_register(0xDC, 0b00000000);
-
             // Enable settings
             adv7511_update_register(0x41, 0b00000010, 0b00000010);
         } else {

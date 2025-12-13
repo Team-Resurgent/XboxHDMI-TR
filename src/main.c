@@ -253,6 +253,8 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
     // RGB is already accounted for with the rgb variable, NTSCJ should only differ in the analog encoder settings
     uint32_t clean_mode = mode & ~XBOX_VIDEO_MODE_BIT_SCART;
     clean_mode = clean_mode & ~XBOX_VIDEO_MODE_BIT_NTSCJ;
+    // Mask out the DAC bits, we don't care about those
+    clean_mode = clean_mode & ~XBOX_VIDEO_DAC_MASK;
 
     switch (xb_encoder) {
         case ENCODER_CONEXANT:

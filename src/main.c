@@ -244,6 +244,11 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
 {
     const video_setting* vs = NULL;
     const video_sync_setting* vss = NULL;
+
+    bool widescreen = mode & XBOX_VIDEO_MODE_BIT_WIDESCREEN;
+    bool interlaced = false; // We dont really care, this is only used for legacy VIC.
+    bool rgb = mode & XBOX_VIDEO_MODE_BIT_SCART;
+
     switch (xb_encoder) {
         case ENCODER_CONEXANT:
             // Look up main table
@@ -310,10 +315,6 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
         debug_log("Video mode not present %d\r\n", mode);
         return;
     }
-
-    bool widescreen = mode & XBOX_VIDEO_WIDESCREEN;
-    bool interlaced = false; // We dont really care, this is only used for legacy VIC.
-    bool rgb = mode & XBOX_VIDEO_RGB;
 
     // Force pixel repeat to 1 (for forcing VIC)
     adv7511_write_register(0x3B, 0b01100000);

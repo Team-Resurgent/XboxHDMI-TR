@@ -44,8 +44,16 @@ typedef struct bios_mode_sync {
 } bios_mode_sync;
 #pragma pack()
 
-#define XBOX_VIDEO_WIDESCREEN 0x10000000
-#define XBOX_VIDEO_RGB 0x20000000
+#define XBOX_VIDEO_MODE_BIT_WIDESCREEN 0x10000000
+#define XBOX_VIDEO_MODE_BIT_SCART      0x20000000 // RGB
+#define XBOX_VIDEO_MODE_BIT_NTSCJ      0x00000080
+
+#define XBOX_VIDEO_MODE_BIT_MASK       0xC0000000
+#define XBOX_VIDEO_MODE_BIT_480SDTV    0x00000000
+#define XBOX_VIDEO_MODE_BIT_576SDTV    0x40000000
+#define XBOX_VIDEO_MODE_BIT_HDTV       0x80000000
+#define XBOX_VIDEO_MODE_BIT_VGA        0xC0000000
+
 #define XBOX_VIDEO_BIOS_MODE_COUNT 29 // Hard coded so all encoders match up
 #define XBOX_VIDEO_BIOS_MODE_SYNC_COUNT 2
 
@@ -191,25 +199,25 @@ typedef enum {
 
 const video_setting video_settings_conexant[] = {
     {119, 36,  640, 480, VIC_01_VGA_640x480_4_3}, // VGA
-    {118, 36,  640, 480, VIC_02_480p_60__4_3}, // 480p
-    {118, 36,  720, 480, VIC_03_480p_60_16_9}, // 480p (wide)
-    {299, 25, 1280, 720, VIC_04_720p_60_16_9}, // 720p
+    {118, 36,  640, 480, VIC_02_480p_60__4_3},    // 480p
+    {118, 36,  720, 480, VIC_03_480p_60_16_9},    // 480p (wide)
+    {299, 25, 1280, 720, VIC_04_720p_60_16_9},    // 720p
     {233, 22, 1920, 540, VIC_05_1080i_60_16_9}
 };
 
 const video_setting video_settings_focus[] = {
     {119, 36,  640, 480, VIC_01_VGA_640x480_4_3}, // VGA
-    {118, 36,  640, 480, VIC_02_480p_60__4_3}, // 480p
-    {118, 36,  720, 480, VIC_03_480p_60_16_9}, // 480p (wide)
-    {299, 25, 1280, 720, VIC_04_720p_60_16_9}, // 720p
+    {118, 36,  640, 480, VIC_02_480p_60__4_3},    // 480p
+    {118, 36,  720, 480, VIC_03_480p_60_16_9},    // 480p (wide)
+    {299, 25, 1280, 720, VIC_04_720p_60_16_9},    // 720p
     {233, 22, 1920, 540, VIC_05_1080i_60_16_9}
 };
 
 const video_setting video_settings_xcalibur[] = {
     {119, 36,  640, 480, VIC_01_VGA_640x480_4_3}, // VGA
-    { 96, 36,  640, 480, VIC_02_480p_60__4_3}, // 480p
-    { 96, 36,  720, 480, VIC_03_480p_60_16_9}, // 480p (wide)
-    {259, 25, 1280, 720, VIC_04_720p_60_16_9}, // 720p
+    { 96, 36,  640, 480, VIC_02_480p_60__4_3},    // 480p
+    { 96, 36,  720, 480, VIC_03_480p_60_16_9},    // 480p (wide)
+    {259, 25, 1280, 720, VIC_04_720p_60_16_9},    // 720p
     {185, 22, 1920, 540, VIC_05_1080i_60_16_9}
 };
 

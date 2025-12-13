@@ -249,11 +249,16 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
     bool interlaced = false; // We dont really care, this is only used for legacy VIC.
     bool rgb = mode & XBOX_VIDEO_MODE_BIT_SCART;
 
+    // Remove RGB and NTSCJ bits
+    // RGB is already accounted for with the rgb variable, NTSCJ should only differ in the analog encoder settings
+    uint32_t clean_mode = mode & ~XBOX_VIDEO_MODE_BIT_SCART;
+    clean_mode = clean_mode & ~XBOX_VIDEO_MODE_BIT_NTSCJ;
+
     switch (xb_encoder) {
         case ENCODER_CONEXANT:
             // Look up main table
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
-                if (video_settings_conexant_bios[i].mode == mode) {
+                if (video_settings_conexant_bios[i].mode == clean_mode) {
                     vs = &video_settings_conexant_bios[i].vs;
                     break;
                 }
@@ -261,7 +266,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
 
             // Look up special sync settings if present
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_SYNC_COUNT; ++i) {
-                if (video_sync_settings_conexant_bios[i].mode == mode) {
+                if (video_sync_settings_conexant_bios[i].mode == clean_mode) {
                     vss = &video_sync_settings_conexant_bios[i].vss;
                     break;
                 }
@@ -271,7 +276,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
         case ENCODER_FOCUS:
             // Look up main table
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
-                if (video_settings_focus_bios[i].mode == mode) {
+                if (video_settings_focus_bios[i].mode == clean_mode) {
                     vs = &video_settings_focus_bios[i].vs;
                     break;
                 }
@@ -279,7 +284,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
 
             // Look up special sync settings if present
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_SYNC_COUNT; ++i) {
-                if (video_sync_settings_focus_bios[i].mode == mode) {
+                if (video_sync_settings_focus_bios[i].mode == clean_mode) {
                     vss = &video_sync_settings_focus_bios[i].vss;
                     break;
                 }
@@ -289,7 +294,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
         case ENCODER_XCALIBUR:
             // Look up main table
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
-                if (video_settings_xcalibur_bios[i].mode == mode) {
+                if (video_settings_xcalibur_bios[i].mode == clean_mode) {
                     vs = &video_settings_xcalibur_bios[i].vs;
                     break;
                 }
@@ -297,7 +302,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
 
             // Look up special sync settings if present
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_SYNC_COUNT; ++i) {
-                if (video_sync_settings_xcalibur_bios[i].mode == mode) {
+                if (video_sync_settings_xcalibur_bios[i].mode == clean_mode) {
                     vss = &video_sync_settings_xcalibur_bios[i].vss;
                     break;
                 }

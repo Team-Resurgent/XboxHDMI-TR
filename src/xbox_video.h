@@ -54,6 +54,8 @@ typedef struct bios_mode_sync {
 #define XBOX_VIDEO_MODE_BIT_HDTV       0x80000000
 #define XBOX_VIDEO_MODE_BIT_VGA        0xC0000000
 
+#define XBOX_VIDEO_MODE_MASK           0x0000FFFF
+
 #define XBOX_VIDEO_BIOS_MODE_COUNT 29 // Hard coded so all encoders match up
 #define XBOX_VIDEO_BIOS_MODE_SYNC_COUNT 2
 

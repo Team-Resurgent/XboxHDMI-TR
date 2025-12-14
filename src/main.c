@@ -70,7 +70,7 @@ int main(void)
     }
 }
 
-void init_adv()
+inline void init_adv()
 {
     adv7511_i2c_init();
 
@@ -393,6 +393,8 @@ inline void set_adv_video_mode_bios(const video_setting * const vs, const video_
     } else {
         adv7511_write_register(0x56, 0b00011000); // 4:3
     }
+
+    adv7511_update_register(0x16, 0b00000001, rgb ? 0b00000000 : 0b00000001);
 
     adv7511_write_register(0x35, (uint8_t)(vs->delay_hs >> 2));
     adv7511_write_register(0x36, ((0b00111111 & (uint8_t)vs->delay_vs)) | (0b11000000 & (uint8_t)(vs->delay_hs << 6)));

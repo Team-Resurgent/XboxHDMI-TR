@@ -57,7 +57,7 @@ typedef struct bios_mode_sync {
 #define XBOX_VIDEO_DAC_MASK            0x0F000000
 #define XBOX_VIDEO_MODE_MASK           0x0000FFFF
 
-#define XBOX_VIDEO_BIOS_MODE_COUNT 29 // Hard coded so all encoders match up
+#define XBOX_VIDEO_BIOS_MODE_COUNT 31 // Hard coded so all encoders match up
 #define XBOX_VIDEO_BIOS_MODE_SYNC_COUNT 2
 
 // Bios mode values
@@ -98,6 +98,9 @@ const bios_mode video_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x800B0A02, {299, 25, 1280,  720, VIC_04_720p_60_16_9}}, // XBOX_VIDEO_1280x720P_720P                 ()
     // 1080i
     {0x800E0C03, {233, 22, 1920,  540, VIC_05_1080i_60_16_9}}, // XBOX_VIDEO_1920x1080I_1080I              ()
+    // New modes RGB
+    {0x00010101, { 95, 36,  640,  480, VIC_02_480p_60__4_3}}, // 640x480_TO_NTSC_M_RGB
+    {0x00020202, { 95, 36,  720,  480, VIC_03_480p_60_16_9}}, // 720x480_TO_NTSC_M_RGB
 };
 
 const bios_mode_sync video_sync_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {
@@ -141,6 +144,9 @@ const bios_mode video_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x800B0A02, {299, 25, 1280,  720, VIC_04_720p_60_16_9}}, // XBOX_VIDEO_1280x720P_720P                 ()
     // 1080i
     {0x800E0C03, {232, 22, 1920,  540, VIC_05_1080i_60_16_9}}, // XBOX_VIDEO_1920x1080I_1080I              ()
+    // New modes RGB
+    {0x00010101, { 95, 36,  640,  480, VIC_02_480p_60__4_3}}, // 640x480_TO_NTSC_M_RGB
+    {0x00020202, { 95, 36,  720,  480, VIC_03_480p_60_16_9}}, // 720x480_TO_NTSC_M_RGB
 };
 
 const bios_mode_sync video_sync_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {
@@ -184,6 +190,9 @@ const bios_mode video_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x800B0A02, {259, 25, 1280,  720, VIC_04_720p_60_16_9}}, // XBOX_VIDEO_1280x720P_720P                 (Tested)
     // 1080i
     {0x800E0C03, {186, 22, 1920,  540, VIC_05_1080i_60_16_9}}, // XBOX_VIDEO_1920x1080I_1080I              (Tested, seems to require custom timings)
+    // New modes RGB
+    {0x00010101, { 95, 36,  640,  480, VIC_02_480p_60__4_3}}, // 640x480_TO_NTSC_M_RGB
+    {0x00020202, { 95, 36,  720,  480, VIC_03_480p_60_16_9}}, // 720x480_TO_NTSC_M_RGB
 };
 
 const bios_mode_sync video_sync_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {

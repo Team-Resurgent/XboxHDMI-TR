@@ -228,7 +228,7 @@ void adv_handle_interrupts()
     }
 }
 
-void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced)
+inline void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced)
 {
     if (mode > XBOX_VIDEO_1080i) {
         debug_log("Invalid video mode for VIC\r\n");
@@ -374,13 +374,12 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
 
     // TODO 50Hz is not applied
 
-    // We didnt find a video mode, abort change
-    if (vs == NULL) {
+    if (vs != NULL) {
+        set_adv_video_mode_bios(vs, vss, widescreen, rgb);
+    } else {
         debug_log("Video mode not present %d\r\n", mode);
         return;
     }
-
-    set_adv_video_mode_bios(vs, vss, widescreen, rgb);
 }
 
 inline void set_adv_video_mode_bios(const video_setting * const vs, const video_sync_setting * const vss, const bool widescreen, const bool rgb)

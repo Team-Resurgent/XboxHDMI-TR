@@ -302,79 +302,57 @@ inline void set_video_mode_vic(const uint8_t mode, const bool widescreen, const 
 
 void set_video_mode_bios(const uint32_t mode, const video_region region)
 {
-    const video_setting* vs = NULL;
-    const video_sync_setting* vss = NULL;
-
+    const VideoMode* table;
+    size_t count;
+    
     switch (xb_encoder) {
         case ENCODER_CONEXANT:
-            // Look up main table
-            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
-                if (video_settings_conexant_bios[i].mode == mode) {
-                    vs = &video_settings_conexant_bios[i].vs;
-                    break;
-                }
-            }
-
-            // Look up special sync settings if present
-            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_SYNC_COUNT; ++i) {
-                if (video_sync_settings_conexant_bios[i].mode == mode) {
-                    vss = &video_sync_settings_conexant_bios[i].vss;
-                    break;
-                }
-            }
+            table = CONEXANT_TABLE;
+            count = sizeof(CONEXANT_TABLE) / sizeof(CONEXANT_TABLE[0]);
             break;
-
         case ENCODER_FOCUS:
-            // Look up main table
-            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
-                if (video_settings_focus_bios[i].mode == mode) {
-                    vs = &video_settings_focus_bios[i].vs;
-                    break;
-                }
-            }
-
-            // Look up special sync settings if present
-            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_SYNC_COUNT; ++i) {
-                if (video_sync_settings_focus_bios[i].mode == mode) {
-                    vss = &video_sync_settings_focus_bios[i].vss;
-                    break;
-                }
-            }
+            table = FOCUS_TABLE;
+            count = sizeof(FOCUS_TABLE) / sizeof(FOCUS_TABLE[0]);
             break;
-
         case ENCODER_XCALIBUR:
-            // Look up main table
-            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
-                if (video_settings_xcalibur_bios[i].mode == mode) {
-                    vs = &video_settings_xcalibur_bios[i].vs;
-                    break;
-                }
-            }
-
-            // Look up special sync settings if present
-            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_SYNC_COUNT; ++i) {
-                if (video_sync_settings_xcalibur_bios[i].mode == mode) {
-                    vss = &video_sync_settings_xcalibur_bios[i].vss;
-                    break;
-                }
-            }
-            break;
-
         default:
+            table = XCALIBUR_TABLE;
+            count = sizeof(XCALIBUR_TABLE) / sizeof(XCALIBUR_TABLE[0]);
             break;
     }
+    
+    uint32_t mode_index = ((mode >> 16) & 0xff);
+    if (mode_index < 1 || mode_index > count) {
+        debug_log("Video mode not present %d\r\n", mode);
+        return;
+    }
+    
+    VideoMode video_mode = table[mode_index - 1]; 
+    
+    //TODO: set interlaced not just for 1080i i.e. use avinfo
+    bool interlaced = mode_index == 0x0e;
+    int interlaceValue = interlaced ? 2 : 1;
 
+    video_setting vs = {0};
+    vs.delay_hs = video_mode.hs_delay;
+    vs.delay_vs = video_mode.vs_delay;
+    vs.active_h = video_mode.hactive;
+    vs.active_w = video_mode.vactive / interlaceValue;
+    
+    video_sync_setting vss = {0};
+    vss.hsync_placement = video_mode.hsync_placement / interlaceValue;
+    vss.hsync_placement = video_mode.hsync_duration;
+    vss.vsync_placement = video_mode.vsync_placement;
+    vss.vsync_placement = video_mode.vsync_duration / interlaceValue;
+    vss.interlaced_offset = 0;
+
+    // TODO vss wont be null so update set_adv_video_mode_bios accordingly
     // TODO 50Hz is not applied
 
     const bool widescreen = mode & XBOX_VIDEO_MODE_BIT_WIDESCREEN;
     const bool rgb = mode & XBOX_VIDEO_MODE_BIT_SCART;
 
-    if (vs != NULL) {
-        set_adv_video_mode_bios(vs, vss, widescreen, rgb);
-    } else {
-        debug_log("Video mode not present %d\r\n", mode);
-        return;
-    }
+    set_adv_video_mode_bios(&vs, &vss, widescreen, rgb);
 }
 
 inline void set_adv_video_mode_bios(const video_setting * const vs, const video_sync_setting * const vss, const bool widescreen, const bool rgb)

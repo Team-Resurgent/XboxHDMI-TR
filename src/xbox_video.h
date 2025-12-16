@@ -60,7 +60,7 @@ typedef struct bios_mode_sync {
 #define XBOX_VIDEO_MODE_MASK           0x0000FFFF
 
 #define XBOX_VIDEO_BIOS_MODE_COUNT      34 // Hard coded so all encoders match up
-#define XBOX_VIDEO_BIOS_MODE_SYNC_COUNT 2
+#define XBOX_VIDEO_BIOS_MODE_SYNC_COUNT 3
 
 // Bios mode values
 // Note, we should only care about YPrPb values, so the rest is not present in the table
@@ -107,13 +107,15 @@ const bios_mode video_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     // New modes UNK
     {0x00020072, { 95, 37,  640,  480, VIC_02_480p_60__4_3}},
 
-    // End of the table/AV Off
+    // End of table / AV Off
     {0x00000000, {  0,  0,    0,    0, VIC_00_VIC_Unavailable}},
 };
 
 const bios_mode_sync video_sync_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {
     {0x0002020E, {62, 16,  6,  9, 0}},
     {0x800E0C03, {44, 88,  2,  5, 0}}, // XBOX_VIDEO_1920x1080I_1080I              ()
+    // End of table / AV Off
+    {0x00000000, { 0,  0,  0,  0, 0}},
 };
 
 const bios_mode video_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
@@ -159,13 +161,15 @@ const bios_mode video_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     // New modes UNK
     {0x00020072, { 95, 37,  640,  480, VIC_02_480p_60__4_3}},
 
-    // End of the table/AV Off
+    // End of table / AV Off
     {0x00000000, {  0,  0,    0,    0, VIC_00_VIC_Unavailable}},
 };
 
 const bios_mode_sync video_sync_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {
     {0x0002020E, {62, 16,  6,  9, 0}},
     {0x800E0C03, {44, 88,  2,  5, 0}}, // XBOX_VIDEO_1920x1080I_1080I              ()
+    // End of table / AV Off
+    {0x00000000, { 0,  0,  0,  0, 0}},
 };
 
 const bios_mode video_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
@@ -211,13 +215,15 @@ const bios_mode video_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     // New modes UNK
     {0x00020072, { 95, 37,  640,  480, VIC_02_480p_60__4_3}},
 
-    // End of the table/AV Off
+    // End of table / AV Off
     {0x00000000, {  0,  0,    0,    0, VIC_00_VIC_Unavailable}},
 };
 
 const bios_mode_sync video_sync_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {
     {0x0002020E, {62, 16,  6,  9, 0}},
     {0x800E0C03, {44, 88,  2,  5, 0}}, // CEA-861 XBOX_VIDEO_1920x1080I_1080I              (Tested)
+    // End of table / AV Off
+    {0x00000000, { 0,  0,  0,  0, 0}},
 };
 
 // VIC mode values

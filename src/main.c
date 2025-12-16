@@ -334,10 +334,47 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
     int interlaceValue = interlaced ? 2 : 1;
 
     video_setting vs = {0};
+    vs.vic = 0;
     vs.delay_hs = video_mode.hs_delay;
     vs.delay_vs = video_mode.vs_delay;
     vs.active_h = video_mode.hactive;
     vs.active_w = video_mode.vactive / interlaceValue;
+
+    // quick hack to put vic into vs
+    switch (xb_encoder) {
+        case ENCODER_CONEXANT:
+            // Look up main table
+            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
+                if (video_settings_conexant_bios[i].mode == mode) {
+                    vs.vic = &video_settings_conexant_bios[i].vs.vic;
+                    break;
+                }
+            }
+            break;
+
+        case ENCODER_FOCUS:
+            // Look up main table
+            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
+                if (video_settings_focus_bios[i].mode == mode) {
+                    vs.vic = &video_settings_focus_bios[i].vs.vic;
+                    break;
+                }
+            }
+            break;
+
+        case ENCODER_XCALIBUR:
+            // Look up main table
+            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
+                if (video_settings_xcalibur_bios[i].mode == mode) {
+                    vs.vic = &video_settings_xcalibur_bios[i].vs.vic;
+                    break;
+                }
+            }
+            break;
+
+        default:
+            break;
+    }
     
     video_sync_setting vss = {0};
     vss.hsync_placement = video_mode.hsync_placement / interlaceValue;

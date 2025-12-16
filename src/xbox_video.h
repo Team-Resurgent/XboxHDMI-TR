@@ -5,7 +5,7 @@
 
 typedef enum xbox_encoder {
     ENCODER_CONEXANT = 0x8A,
-    ENCODER_FOCUS = 0xD4,
+    ENCODER_FOCUS    = 0xD4,
     ENCODER_XCALIBUR = 0xE0
 } xbox_encoder;
 
@@ -26,7 +26,7 @@ typedef struct video_setting {
 } video_setting;
 
 typedef struct bios_mode {
-    uint32_t mode;
+    uint32_t      mode;
     video_setting vs;
 } bios_mode;
 
@@ -39,14 +39,16 @@ typedef struct video_sync_setting {
 } video_sync_setting;
 
 typedef struct bios_mode_sync {
-    uint32_t mode;
+    uint32_t           mode;
     video_sync_setting vss;
 } bios_mode_sync;
+
 #pragma pack()
 
 #define XBOX_VIDEO_MODE_BIT_WIDESCREEN 0x10000000
 #define XBOX_VIDEO_MODE_BIT_SCART      0x20000000 // RGB
-#define XBOX_VIDEO_MODE_BIT_NTSCJ      0x00000080
+
+#define XBOX_VIDEO_MODE_BIT_NTSCJ      0x00000002
 
 #define XBOX_VIDEO_MODE_BIT_MASK       0xC0000000
 #define XBOX_VIDEO_MODE_BIT_480SDTV    0x00000000
@@ -57,7 +59,7 @@ typedef struct bios_mode_sync {
 #define XBOX_VIDEO_DAC_MASK            0x0F000000
 #define XBOX_VIDEO_MODE_MASK           0x0000FFFF
 
-#define XBOX_VIDEO_BIOS_MODE_COUNT 32 // Hard coded so all encoders match up
+#define XBOX_VIDEO_BIOS_MODE_COUNT      34 // Hard coded so all encoders match up
 #define XBOX_VIDEO_BIOS_MODE_SYNC_COUNT 2
 
 // Bios mode values
@@ -102,6 +104,11 @@ const bios_mode video_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x00010101, { 95, 36,  640,  480, VIC_02_480p_60__4_3}}, // 640x480_TO_NTSC_M_RGB
     {0x00010103, { 95, 36,  720,  480, VIC_03_480p_60_16_9}}, // 720x480_TO_NTSC_M_RGB
     {0x00020202, { 95, 36,  720,  480, VIC_03_480p_60_16_9}}, // 720x480_TO_NTSC_M_RGB
+    // New modes UNK
+    {0x00020072, { 95, 37,  640,  480, VIC_02_480p_60__4_3}},
+
+    // End of the table/AV Off
+    {0x00000000, {  0,  0,    0,    0, VIC_00_VIC_Unavailable}},
 };
 
 const bios_mode_sync video_sync_settings_conexant_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {
@@ -149,6 +156,11 @@ const bios_mode video_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x00010101, { 95, 36,  640,  480, VIC_02_480p_60__4_3}}, // 640x480_TO_NTSC_M_RGB
     {0x00010103, { 95, 36,  720,  480, VIC_03_480p_60_16_9}}, // 720x480_TO_NTSC_M_RGB
     {0x00020202, { 95, 36,  720,  480, VIC_03_480p_60_16_9}}, // 720x480_TO_NTSC_M_RGB
+    // New modes UNK
+    {0x00020072, { 95, 37,  640,  480, VIC_02_480p_60__4_3}},
+
+    // End of the table/AV Off
+    {0x00000000, {  0,  0,    0,    0, VIC_00_VIC_Unavailable}},
 };
 
 const bios_mode_sync video_sync_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {
@@ -158,8 +170,8 @@ const bios_mode_sync video_sync_settings_focus_bios[XBOX_VIDEO_BIOS_MODE_SYNC_CO
 
 const bios_mode video_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     // 640x480
-    {0x0001010D, { 95, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_NTSC_YPrPb             ()
-    {0x1001010D, { 95, 36,  640,  480, VIC_03_480p_60_16_9}}, // XBOX_VIDEO_640x480_NTSC_YPrPb_16x9        ()
+    {0x0001010D, { 95, 37,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_NTSC_YPrPb             ()
+    {0x1001010D, { 95, 37,  640,  480, VIC_03_480p_60_16_9}}, // XBOX_VIDEO_640x480_NTSC_YPrPb_16x9        ()
     {0x000F0D12, { 95, 25,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_FPAR_NTSC_YPrPb        ()
     {0x100F0D12, { 95, 25,  640,  480, VIC_03_480p_60_16_9}}, // XBOX_VIDEO_640x480_FPAR_NTSC_YPrPb_16x9   ()
     {0x40030314, { 95, 36,  640,  480, VIC_02_480p_60__4_3}}, // XBOX_VIDEO_640x480_PAL_I_YPrPb            (Tested)
@@ -196,6 +208,11 @@ const bios_mode video_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_COUNT] = {
     {0x00010101, { 95, 36,  640,  480, VIC_02_480p_60__4_3}}, // 640x480_TO_NTSC_M_RGB
     {0x00010103, { 95, 36,  720,  480, VIC_03_480p_60_16_9}}, // 720x480_TO_NTSC_M_RGB
     {0x00020202, { 95, 36,  720,  480, VIC_03_480p_60_16_9}}, // 720x480_TO_NTSC_M_RGB
+    // New modes UNK
+    {0x00020072, { 95, 37,  640,  480, VIC_02_480p_60__4_3}},
+
+    // End of the table/AV Off
+    {0x00000000, {  0,  0,    0,    0, VIC_00_VIC_Unavailable}},
 };
 
 const bios_mode_sync video_sync_settings_xcalibur_bios[XBOX_VIDEO_BIOS_MODE_SYNC_COUNT] = {

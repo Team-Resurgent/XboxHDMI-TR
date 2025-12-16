@@ -305,19 +305,11 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
     const video_setting* vs = NULL;
     const video_sync_setting* vss = NULL;
 
-    bool widescreen = mode & XBOX_VIDEO_MODE_BIT_WIDESCREEN;
-    bool rgb = mode & XBOX_VIDEO_MODE_BIT_SCART;
-
-    // Remove RGB and NTSCJ bits
-    // RGB is already accounted for with the rgb variable, NTSCJ should only differ in the analog encoder settings
-    // We also mask out the DAC bits, we don't care about those
-    const uint32_t clean_mode = mode & ~(XBOX_VIDEO_MODE_BIT_SCART|XBOX_VIDEO_MODE_BIT_NTSCJ|XBOX_VIDEO_DAC_MASK);
-
     switch (xb_encoder) {
         case ENCODER_CONEXANT:
             // Look up main table
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
-                if (video_settings_conexant_bios[i].mode == clean_mode) {
+                if (video_settings_conexant_bios[i].mode == mode) {
                     vs = &video_settings_conexant_bios[i].vs;
                     break;
                 }
@@ -325,7 +317,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
 
             // Look up special sync settings if present
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_SYNC_COUNT; ++i) {
-                if (video_sync_settings_conexant_bios[i].mode == clean_mode) {
+                if (video_sync_settings_conexant_bios[i].mode == mode) {
                     vss = &video_sync_settings_conexant_bios[i].vss;
                     break;
                 }
@@ -335,7 +327,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
         case ENCODER_FOCUS:
             // Look up main table
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
-                if (video_settings_focus_bios[i].mode == clean_mode) {
+                if (video_settings_focus_bios[i].mode == mode) {
                     vs = &video_settings_focus_bios[i].vs;
                     break;
                 }
@@ -343,7 +335,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
 
             // Look up special sync settings if present
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_SYNC_COUNT; ++i) {
-                if (video_sync_settings_focus_bios[i].mode == clean_mode) {
+                if (video_sync_settings_focus_bios[i].mode == mode) {
                     vss = &video_sync_settings_focus_bios[i].vss;
                     break;
                 }
@@ -353,7 +345,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
         case ENCODER_XCALIBUR:
             // Look up main table
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
-                if (video_settings_xcalibur_bios[i].mode == clean_mode) {
+                if (video_settings_xcalibur_bios[i].mode == mode) {
                     vs = &video_settings_xcalibur_bios[i].vs;
                     break;
                 }
@@ -361,7 +353,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
 
             // Look up special sync settings if present
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_SYNC_COUNT; ++i) {
-                if (video_sync_settings_xcalibur_bios[i].mode == clean_mode) {
+                if (video_sync_settings_xcalibur_bios[i].mode == mode) {
                     vss = &video_sync_settings_xcalibur_bios[i].vss;
                     break;
                 }
@@ -373,6 +365,9 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
     }
 
     // TODO 50Hz is not applied
+
+    const bool widescreen = mode & XBOX_VIDEO_MODE_BIT_WIDESCREEN;
+    const bool rgb = mode & XBOX_VIDEO_MODE_BIT_SCART;
 
     if (vs != NULL) {
         set_adv_video_mode_bios(vs, vss, widescreen, rgb);

@@ -346,7 +346,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
             // Look up main table
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
                 if (video_settings_conexant_bios[i].mode == mode) {
-                    vs.vic = &video_settings_conexant_bios[i].vs.vic;
+                    vs.vic = video_settings_conexant_bios[i].vs.vic;
                     break;
                 }
             }
@@ -356,7 +356,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
             // Look up main table
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
                 if (video_settings_focus_bios[i].mode == mode) {
-                    vs.vic = &video_settings_focus_bios[i].vs.vic;
+                    vs.vic = video_settings_focus_bios[i].vs.vic;
                     break;
                 }
             }
@@ -366,7 +366,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
             // Look up main table
             for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
                 if (video_settings_xcalibur_bios[i].mode == mode) {
-                    vs.vic = &video_settings_xcalibur_bios[i].vs.vic;
+                    vs.vic = video_settings_xcalibur_bios[i].vs.vic;
                     break;
                 }
             }

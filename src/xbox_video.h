@@ -45,8 +45,11 @@ typedef struct bios_mode_sync {
 
 #pragma pack()
 
+// Mode
 #define XBOX_VIDEO_MODE_BIT_WIDESCREEN 0x10000000
 #define XBOX_VIDEO_MODE_BIT_SCART      0x20000000 // RGB
+// Avinfo
+#define XBOX_AVINFO_INTERLACED         0x00200000
 
 #define XBOX_VIDEO_MODE_BIT_MASK       0xC0000000
 #define XBOX_VIDEO_MODE_BIT_480SDTV    0x00000000

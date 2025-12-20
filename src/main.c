@@ -329,8 +329,9 @@ void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video
 
     const VideoMode video_mode = table[mode_index - 1];
 
-    //TODO: set interlaced not just for 1080i i.e. use avinfo
-    bool interlaced = mode_index == 0x0e;
+    // TODO: Figure out if the avinfo is a reliable source for the interlaced flag
+    const bool interlaced = mode_index == 0x0e;
+    // const bool interlaced = avinfo & XBOX_AVINFO_INTERLACED; most modes are progressive on the bus...
     int interlaceValue = interlaced ? 2 : 1;
 
     video_setting vs = {0};
@@ -379,11 +380,9 @@ void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video
     vss.vsync_placement = video_mode.vsync_duration / interlaceValue;
     vss.interlaced_offset = 0;
 
-    // TODO vss wont be null so update set_adv_video_mode_bios accordingly
-    // TODO 50Hz is not applied
-
     const bool rgb = mode & XBOX_VIDEO_MODE_BIT_SCART;
 
+    // TODO vss wont be null so update set_adv_video_mode_bios accordingly
     set_adv_video_mode_bios(&vs, &vss, widescreen, rgb);
 }
 

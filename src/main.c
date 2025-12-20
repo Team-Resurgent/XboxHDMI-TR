@@ -419,6 +419,9 @@ inline void set_adv_video_mode_bios(const video_setting * const vs, const video_
 
         // Enable settings
         adv7511_update_register(0x41, 0b00000010, 0b00000010);
+    } else {
+        // Disable sync settings
+        adv7511_update_register(0x41, 0b00000010, 0b00000000);
     }
 
     // Fixes jumping for 1080i, somehow doing this in the init sequence doesnt stick or gets reset

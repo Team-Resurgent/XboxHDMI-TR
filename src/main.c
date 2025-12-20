@@ -330,8 +330,7 @@ void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video
     VideoMode video_mode = table[mode_index - 1];
 
     // TODO: Figure out if the avinfo is a reliable source for the interlaced flag
-    // const bool interlaced = mode_index == 0x0e;
-    const bool interlaced = false;
+    const bool interlaced = mode_index == 0x0e;
     // const bool interlaced = avinfo & XBOX_AVINFO_INTERLACED; most modes are progressive on the bus...
 
     if (interlaced) {

@@ -340,40 +340,52 @@ void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video
     vs.active_h = video_mode.hactive;
     vs.active_w = video_mode.vactive / interlaceValue;
 
-    // quick hack to put vic into vs
-    switch (xb_encoder) {
-        case ENCODER_CONEXANT:
-            // Look up main table
-            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
-                if (video_settings_conexant_bios[i].mode == mode) {
-                    vs.vic = video_settings_conexant_bios[i].vs.vic;
-                    break;
-                }
-            }
-            break;
+    const bool widescreen = mode & XBOX_VIDEO_MODE_BIT_WIDESCREEN;
 
-        case ENCODER_FOCUS:
-            // Look up main table
-            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
-                if (video_settings_focus_bios[i].mode == mode) {
-                    vs.vic = video_settings_focus_bios[i].vs.vic;
-                    break;
-                }
+    switch (video_mode.hactive) {
+        case 640:
+        if (video_mode.vactive == 576) {
+            if (widescreen) {
+                vs.vic = VIC_18_576p_50_16_9;
+            } else {
+                vs.vic = VIC_17_576p_50__4_3;
             }
-            break;
+        } else {
+            if (widescreen) {
+                vs.vic = VIC_02_480p_60__4_3;
+            } else {
+                vs.vic = VIC_03_480p_60_16_9;
+            }
+        }
+        break;
 
-        case ENCODER_XCALIBUR:
-            // Look up main table
-            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
-                if (video_settings_xcalibur_bios[i].mode == mode) {
-                    vs.vic = video_settings_xcalibur_bios[i].vs.vic;
-                    break;
-                }
+        case 720:
+        if (video_mode.vactive == 576) {
+            if (widescreen) {
+                vs.vic = VIC_18_576p_50_16_9;
+            } else {
+                vs.vic = VIC_17_576p_50__4_3;
             }
-            break;
+        } else {
+            if (widescreen) {
+                vs.vic = VIC_02_480p_60__4_3;
+            } else {
+                vs.vic = VIC_03_480p_60_16_9;
+            }
+        }
+        break;
+
+        case 1280:
+        vs.vic = VIC_04_720p_60_16_9;
+        break;
+
+        case 1920:
+        vs.vic = VIC_05_1080i_60_16_9;
+        break;
 
         default:
-            break;
+        vs.vic = VIC_00_VIC_Unavailable;
+        break;
     }
 
     video_sync_setting vss = {0};
@@ -386,7 +398,6 @@ void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video
     // TODO vss wont be null so update set_adv_video_mode_bios accordingly
     // TODO 50Hz is not applied
 
-    const bool widescreen = mode & XBOX_VIDEO_MODE_BIT_WIDESCREEN;
     const bool rgb = mode & XBOX_VIDEO_MODE_BIT_SCART;
 
     set_adv_video_mode_bios(&vs, &vss, widescreen, rgb);

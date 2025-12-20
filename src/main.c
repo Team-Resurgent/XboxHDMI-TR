@@ -30,9 +30,9 @@ static void init_gpio(void);
 int main(void)
 {
     // TODO Allow user to force any of the 3 encoders
-#ifdef XCALIBUR
+#ifdef BUILD_XCALIBUR
     xb_encoder = ENCODER_XCALIBUR;
-#elif FOCUS
+#elif BUILD_FOCUS
     xb_encoder = ENCODER_FOCUS;
 #else
     xb_encoder = ENCODER_CONEXANT;

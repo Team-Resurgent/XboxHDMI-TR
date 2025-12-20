@@ -235,7 +235,7 @@ inline void set_video_mode_vic(const uint8_t mode, const bool widescreen, const 
         return;
     }
 
-    const video_setting* vs = NULL;
+    const video_setting_vic* vs = NULL;
     switch (xb_encoder) {
         case ENCODER_CONEXANT:
             vs = &video_settings_conexant[mode];

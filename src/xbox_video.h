@@ -23,23 +23,33 @@ typedef struct video_setting {
     uint16_t active_w;
     uint16_t active_h;
     uint8_t  vic;
-} video_setting;
+} video_setting_vic;
+
+typedef struct {
+    uint16_t hs_delay;   // Increase value to push picture left
+    uint16_t vs_delay;   // Increase value to push picture up
+    uint16_t h_active;
+    uint16_t v_active;
+    int hsync_placement; // H Sync
+    int hsync_duration;  // H Front Porch
+    int vsync_placement; // V Sync
+    int vsync_duration;  // V Front Porch
+    uint8_t  interlaced_offset; // 3 bit
+} VideoMode;
 #pragma pack()
 
 // Mode
 #define XBOX_VIDEO_MODE_BIT_WIDESCREEN 0x10000000
 #define XBOX_VIDEO_MODE_BIT_SCART      0x20000000 // RGB
-// Avinfo
-#define XBOX_AVINFO_INTERLACED         0x00200000
-
 #define XBOX_VIDEO_MODE_BIT_MASK       0xC0000000
 #define XBOX_VIDEO_MODE_BIT_480SDTV    0x00000000
 #define XBOX_VIDEO_MODE_BIT_576SDTV    0x40000000
 #define XBOX_VIDEO_MODE_BIT_HDTV       0x80000000
 #define XBOX_VIDEO_MODE_BIT_VGA        0xC0000000
-
 #define XBOX_VIDEO_DAC_MASK            0x0F000000
 #define XBOX_VIDEO_MODE_MASK           0x0000FFFF
+// Avinfo
+#define XBOX_AVINFO_INTERLACED         0x00200000
 
 // VIC mode values
 typedef enum {
@@ -50,7 +60,7 @@ typedef enum {
     XBOX_VIDEO_1080i
 } video_modes_vic;
 
-const video_setting video_settings_conexant[] = {
+const video_setting_vic video_settings_conexant[] = {
     {119, 36,  640, 480, VIC_01_VGA_640x480_4_3},
     {118, 36,  640, 480, VIC_02_480p_60__4_3},
     {118, 36,  720, 480, VIC_03_480p_60_16_9},
@@ -58,7 +68,7 @@ const video_setting video_settings_conexant[] = {
     {233, 22, 1920, 540, VIC_05_1080i_60_16_9}
 };
 
-const video_setting video_settings_focus[] = {
+const video_setting_vic video_settings_focus[] = {
     {119, 36,  640, 480, VIC_01_VGA_640x480_4_3},
     {118, 36,  640, 480, VIC_02_480p_60__4_3},
     {118, 36,  720, 480, VIC_03_480p_60_16_9},
@@ -66,7 +76,7 @@ const video_setting video_settings_focus[] = {
     {233, 22, 1920, 540, VIC_05_1080i_60_16_9}
 };
 
-const video_setting video_settings_xcalibur[] = {
+const video_setting_vic video_settings_xcalibur[] = {
     {119, 36,  640, 480, VIC_01_VGA_640x480_4_3},
     { 96, 36,  640, 480, VIC_02_480p_60__4_3},
     { 96, 36,  720, 480, VIC_03_480p_60_16_9},
@@ -75,18 +85,7 @@ const video_setting video_settings_xcalibur[] = {
 };
 // End VIC modes
 
-typedef struct {
-    uint16_t hs_delay;
-    uint16_t vs_delay;
-    uint16_t h_active;
-    uint16_t v_active;
-    int hsync_placement; // H Sync
-    int hsync_duration;  // H Front Porch
-    int vsync_placement; // V Sync
-    int vsync_duration;  // V Front Porch
-    uint8_t  interlaced_offset; // 3 bit
-} VideoMode;
-
+// Bios mode values
 static const VideoMode XCALIBUR_TABLE[] = {
     { 96, 37,  640,  480,  43,   2,  7,  2, 0}, // 01 640x480_NTSC_RGB
     { 96, 37,  720,  480,  41,   6,  7,  6, 0}, // 02 720x480_NTSC_RGB
@@ -149,6 +148,6 @@ static const VideoMode FOCUS_TABLE[] = {
     {122, 36,  654,  480,  15, 63,  8,  6, 0}, // 640x480_FPAR_480P
     {144, 26,  640,  576,  79, 64, 22,  2, 0}  // 640x576_FPAR_PAL_RGB
 };
-
+// End bios mode values
 
 #endif // __XBOX_H__

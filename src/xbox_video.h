@@ -26,14 +26,14 @@ typedef struct video_setting {
 } video_setting_vic;
 
 typedef struct {
-    uint16_t hs_delay;   // Increase value to push picture left
-    uint16_t vs_delay;   // Increase value to push picture up
-    uint16_t h_active;
-    uint16_t v_active;
-    int hsync_placement; // H Sync
-    int hsync_duration;  // H Front Porch
-    int vsync_placement; // V Sync
-    int vsync_duration;  // V Front Porch
+    uint16_t hs_delay;          // Increase value to push picture left
+    uint16_t vs_delay;          // Increase value to push picture up
+    uint16_t h_active;          // Horizontal resolution
+    uint16_t v_active;          // Vertical resolution
+    uint16_t hsync_placement;   // H Sync
+    uint16_t hsync_duration;    // H Front Porch
+    uint16_t vsync_placement;   // V Sync
+    uint16_t vsync_duration;    // V Front Porch
     uint8_t  interlaced_offset; // 3 bit
 } VideoMode;
 #pragma pack()
@@ -101,10 +101,10 @@ static const VideoMode XCALIBUR_TABLE[] = {
     {236, 40, 1440, 1080,  43,  88,  4, 10, 0}, // 0C 1440x1080               ?
     {236, 40, 1920, 1080,  43,  88,  4, 10, 0}, // 0D 1080                    ?
     {187, 41, 1920, 1080,  92,  40,  3, 10, 0}, // 0E 1080i                   Untested
-    {136, 37,  640,  480,  81,  -1,  7,  6, 0}, // 0F 640x480_FPAR_NTSC_RGB   OK
+    {136, 37,  640,  480,  81,   1,  7,  6, 0}, // 0F 640x480_FPAR_NTSC_RGB   OK
     {177, 38,  640,  480,  81,  42,  1, 10, 0}, // 10 640x480_FPAR_PAL_RGB    OK
     { 96, 36,  654,  480,  41,  37,  8,  6, 0}, // 11 640x480_FPAR_480P       NOK
-    {142, 41,  640,  576,  87,  -7,  6,  6, 0}  // 12 640x576_FPAR_PAL_RGB    OK
+    {142, 41,  640,  576,  87,   7,  6,  6, 0}  // 12 640x576_FPAR_PAL_RGB    OK
 };
 
 static const VideoMode CONEXANT_TABLE[] = {

@@ -94,12 +94,6 @@ const video_setting video_settings_xcalibur[] = {
 };
 // End VIC modes
 
-typedef enum {
-    CONEXANT = 0,
-    FOCUS = 1,
-    XCALIBUR = 2
-} EncoderType;
-
 typedef struct {
     uint16_t hs_delay;
     uint16_t vs_delay;

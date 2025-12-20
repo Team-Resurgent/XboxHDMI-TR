@@ -345,33 +345,17 @@ void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video
     switch (video_mode.hactive) {
         case 640:
         if (video_mode.vactive == 576) {
-            if (widescreen) {
-                vs.vic = VIC_18_576p_50_16_9;
-            } else {
-                vs.vic = VIC_17_576p_50__4_3;
-            }
+            vs.vic = widescreen ? VIC_18_576p_50_16_9 : VIC_17_576p_50__4_3;
         } else {
-            if (widescreen) {
-                vs.vic = VIC_02_480p_60__4_3;
-            } else {
-                vs.vic = VIC_03_480p_60_16_9;
-            }
+            vs.vic = widescreen ? VIC_02_480p_60__4_3 : VIC_03_480p_60_16_9;
         }
         break;
 
         case 720:
         if (video_mode.vactive == 576) {
-            if (widescreen) {
-                vs.vic = VIC_18_576p_50_16_9;
-            } else {
-                vs.vic = VIC_17_576p_50__4_3;
-            }
+            vs.vic = widescreen ? VIC_18_576p_50_16_9 : VIC_17_576p_50__4_3;
         } else {
-            if (widescreen) {
-                vs.vic = VIC_02_480p_60__4_3;
-            } else {
-                vs.vic = VIC_03_480p_60_16_9;
-            }
+            vs.vic = widescreen ? VIC_02_480p_60__4_3 : VIC_03_480p_60_16_9;
         }
         break;
 

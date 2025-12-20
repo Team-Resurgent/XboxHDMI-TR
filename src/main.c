@@ -21,7 +21,7 @@ void bios_loop();
 void stand_alone_loop();
 
 void set_video_mode_vic(const uint8_t mode, const bool wide, const bool interlaced);
-void set_video_mode_bios(const uint32_t mode, const video_region region);
+void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video_region region);
 void set_adv_video_mode_bios(const video_setting * const vs, const video_sync_setting * const vss, const bool widescreen, const bool rgb);
 
 void SystemClock_Config(void);
@@ -156,7 +156,7 @@ inline void bios_loop()
             init_adv_encoder_specific();
         }
 
-        set_video_mode_bios(vid_settings->mode, vid_settings->region);
+        set_video_mode_bios(vid_settings->mode, vid_settings->avinfo, vid_settings->region);
         ack_video_mode_update();
     }
 }
@@ -300,11 +300,11 @@ inline void set_video_mode_vic(const uint8_t mode, const bool widescreen, const 
     debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);
 }
 
-void set_video_mode_bios(const uint32_t mode, const video_region region)
+void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video_region region)
 {
     const VideoMode* table;
     size_t count;
-    
+
     switch (xb_encoder) {
         case ENCODER_CONEXANT:
             table = CONEXANT_TABLE;
@@ -320,15 +320,15 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
             count = sizeof(XCALIBUR_TABLE) / sizeof(XCALIBUR_TABLE[0]);
             break;
     }
-    
+
     uint32_t mode_index = ((mode >> 16) & 0xff);
     if (mode_index < 1 || mode_index > count) {
         debug_log("Video mode not present %d\r\n", mode);
         return;
     }
-    
-    VideoMode video_mode = table[mode_index - 1]; 
-    
+
+    const VideoMode video_mode = table[mode_index - 1];
+
     //TODO: set interlaced not just for 1080i i.e. use avinfo
     bool interlaced = mode_index == 0x0e;
     int interlaceValue = interlaced ? 2 : 1;
@@ -375,7 +375,7 @@ void set_video_mode_bios(const uint32_t mode, const video_region region)
         default:
             break;
     }
-    
+
     video_sync_setting vss = {0};
     vss.hsync_placement = video_mode.hsync_placement / interlaceValue;
     vss.hsync_placement = video_mode.hsync_duration;

@@ -16,7 +16,7 @@ jobs:
             defines: ""
           - env: xboxhdmi_stm32f0
             name: xcalibur
-            defines: "-DXCALIBUR"
+            defines: "-DBUILD_XCALIBUR"
 
     steps:
     - uses: actions/checkout@v4
@@ -95,3 +95,4 @@ jobs:
         draft: false
         files: |
           release-artifacts/*
+

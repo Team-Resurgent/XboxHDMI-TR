@@ -23,6 +23,6 @@ void ack_video_mode_update();
 
 const SMBusSettings * const getSMBusSettings();
 
-bool bios_tookover();
+bool bios_took_over();
 
 #endif // __SMBUS_I2C_H__

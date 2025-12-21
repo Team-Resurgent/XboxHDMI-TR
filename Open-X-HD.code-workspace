@@ -17,12 +17,21 @@
 			"stdbool.h": "c"
 		},
 		"cSpell.words": [
+			"avinfo",
 			"Cerbios",
 			"CONEXANT",
+			"FPAR",
+			"GPIOC",
 			"NRST",
+			"NTSC",
+			"NTSCJ",
+			"NTSCM",
 			"OXHD",
 			"pinout",
 			"Ryzee",
+			"SCART",
+			"SDTV",
+			"smbus",
 			"SWCLK",
 			"SWDIO",
 			"XCALIBUR"

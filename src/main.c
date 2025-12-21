@@ -56,9 +56,9 @@ int main(void)
 
         // Check PLL status
         bool pll_lock = (adv7511_read_register(0x9E) >> 4) & 0x01;
-        led_status1(pll_lock);
+        set_led_1(pll_lock);
 
-        if (bios_tookover()) {
+        if (bios_took_over()) {
             bios_loop();
         }
         else
@@ -146,7 +146,7 @@ void init_adv_encoder_specific()
 
 inline void bios_loop()
 {
-    led_status2(true);
+    set_led_2(true);
 
     if (video_mode_updated()) {
         const SMBusSettings * const vid_settings = getSMBusSettings();
@@ -163,7 +163,7 @@ inline void bios_loop()
 
 inline void stand_alone_loop()
 {
-    led_status2(false);
+    set_led_2(false);
 
     if ((adv7511_read_register(0x3e) >> 2) != (encoder.vic & 0x0F))
     {
@@ -423,9 +423,6 @@ inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, c
     adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);
     // END AVI Infoframe Update
     adv7511_update_register(0x4A, 0b01000000, 0b00000000);
-
-    debug_log("Actual Pixel Repetition : 0x%02x\r\n", (adv7511_read_register(0x3D) & 0xC0) >> 6);
-    debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);
 }
 
 // TODO split this out

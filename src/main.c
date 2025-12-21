@@ -367,8 +367,6 @@ inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, c
     adv7511_write_register(0x39, (uint8_t)(vm.v_active >> 4));
     adv7511_write_register(0x3A, (uint8_t)(vm.v_active << 4));
 
-    // Hsync/Vsync duration+porch might be needed at some point, 1.6 FPAR has some pillar boxing
-    // This is required for interlaced modes
     adv7511_write_register(0xD7, (uint8_t)(vm.hsync_placement >> 2));
     adv7511_write_register(0xD8, (uint8_t)(vm.hsync_placement << 6) | (vm.hsync_duration  >> 4));
     adv7511_write_register(0xD9, (uint8_t)(vm.hsync_duration  << 4) | (vm.vsync_placement >> 6));

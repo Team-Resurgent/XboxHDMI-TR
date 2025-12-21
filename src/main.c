@@ -23,6 +23,7 @@ void stand_alone_loop();
 void set_video_mode_vic(const uint8_t mode, const bool wide, const bool interlaced);
 void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video_region region);
 void set_adv_video_mode_bios(const VideoMode video_mode, const bool widescreen, const bool rgb);
+uint8_t get_vic_from_video_mode(const VideoMode * const vm, const bool widescreen);
 
 void SystemClock_Config(void);
 static void init_gpio(void);
@@ -378,13 +379,29 @@ inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, c
     // Enable settings
     adv7511_update_register(0x41, 0b00000010, 0b00000010);
 
-    // Fixes jumping for 1080i, somehow doing this in the init sequence doesnt stick or gets reset
+    // Fixes jumping for 1080i, somehow doing this in the init sequence doesn't stick or gets reset
     adv7511_update_register(0xD0, 0b00000010, 0b00000010);
 
+    uint8_t vic = get_vic_from_video_mode(&vm, widescreen);
+
+    // Set the vic from the table
+    adv7511_write_register(0x3C, vic);
+
+    // Start AVI Infoframe Update
+    adv7511_update_register(0x4A, 0b01000000, 0b01000000);
+    // Infoframe output format to RGB or YCbCr4:4:4
+    adv7511_update_register(0x55, 0b01100000, rgb ? 0b00000000 : 0b01000000);
+    // Set aspect ratio
+    adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);
+    // END AVI Infoframe Update
+    adv7511_update_register(0x4A, 0b01000000, 0b00000000);
+}
+
+uint8_t get_vic_from_video_mode(const VideoMode * const vm, const bool widescreen) {
     uint8_t vic;
-    switch (vm.h_active) {
+    switch (vm->h_active) {
         case 640:
-        if (vm.v_active == 576) {
+        if (vm->v_active == 576) {
             vic = widescreen ? VIC_18_576p_50_16_9 : VIC_17_576p_50__4_3;
         } else {
             vic = widescreen ? VIC_02_480p_60__4_3 : VIC_03_480p_60_16_9;
@@ -392,7 +409,7 @@ inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, c
         break;
 
         case 720:
-        if (vm.v_active == 576) {
+        if (vm->v_active == 576) {
             vic = widescreen ? VIC_18_576p_50_16_9 : VIC_17_576p_50__4_3;
         } else {
             vic = widescreen ? VIC_02_480p_60__4_3 : VIC_03_480p_60_16_9;
@@ -411,18 +428,7 @@ inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, c
         vic = VIC_00_VIC_Unavailable;
         break;
     }
-
-    // Set the vic from the table
-    adv7511_write_register(0x3C, vic);
-
-    // Start AVI Infoframe Update
-    adv7511_update_register(0x4A, 0b01000000, 0b01000000);
-    // Infoframe output format to RGB or YCbCr4:4:4
-    adv7511_update_register(0x55, 0b01100000, rgb ? 0b00000000 : 0b01000000);
-    // Set aspect ratio
-    adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);
-    // END AVI Infoframe Update
-    adv7511_update_register(0x4A, 0b01000000, 0b00000000);
+    return vic;
 }
 
 // TODO split this out

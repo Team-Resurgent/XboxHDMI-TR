@@ -235,6 +235,9 @@ inline void set_video_mode_vic(const uint8_t mode, const bool widescreen, const 
         return;
     }
 
+    // Enable black image
+    adv7511_update_register(0xD5, 0b00000001, 0b00000001);
+
     const video_setting_vic* vs = NULL;
     switch (xb_encoder) {
         case ENCODER_CONEXANT:
@@ -296,6 +299,10 @@ inline void set_video_mode_vic(const uint8_t mode, const bool widescreen, const 
 
     // Set the vic from the table
     adv7511_write_register(0x3C, vs->vic);
+
+    // Disable black image
+    adv7511_update_register(0xD5, 0b00000001, 0b00000000);
+
     debug_log("Actual Pixel Repetition : 0x%02x\r\n", (adv7511_read_register(0x3D) & 0xC0) >> 6);
     debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);
 }
@@ -338,13 +345,16 @@ void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video
     }
 
     const bool widescreen = mode & XBOX_VIDEO_MODE_BIT_WIDESCREEN;
-    const bool rgb = mode & XBOX_VIDEO_MODE_BIT_SCART;
+    const bool rgb = (mode & XBOX_VIDEO_MODE_BIT_SCART);
 
     set_adv_video_mode_bios(video_mode, widescreen, rgb);
 }
 
 inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, const bool rgb)
 {
+    // Enable black image
+    adv7511_update_register(0xD5, 0b00000001, 0b00000001);
+
     // Force pixel repeat to 1 (for forcing VIC)
     adv7511_write_register(0x3B, 0b01100000);
 
@@ -355,6 +365,8 @@ inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, c
     }
 
     adv7511_update_register(0x16, 0b00000001, rgb ? 0b00000000 : 0b00000001);
+    // TODO: Figure out if converting RGB to YCbCr is a better idea
+    // adv7511_update_register(0x18, 0b10000000, rgb ? 0b10000000 : 0b00000000);
 
     adv7511_write_register(0x35, (uint8_t)(vm.hs_delay >> 2));
     adv7511_write_register(0x36, ((0b00111111 & (uint8_t)vm.vs_delay)) | (0b11000000 & (uint8_t)(vm.hs_delay << 6)));
@@ -362,15 +374,6 @@ inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, c
     adv7511_write_register(0x38, (uint8_t)(vm.h_active << 1));
     adv7511_write_register(0x39, (uint8_t)(vm.v_active >> 4));
     adv7511_write_register(0x3A, (uint8_t)(vm.v_active << 4));
-
-    // Start AVI Infoframe Update
-    adv7511_update_register(0x4A, 0b01000000, 0b01000000);
-    // Infoframe output format to RGB or YCbCr4:4:4
-    adv7511_update_register(0x55, 0b01100000, rgb ? 0b00000000 : 0b01000000);
-    // Set aspect ratio
-    adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);
-    // END AVI Infoframe Update
-    adv7511_update_register(0x4A, 0b01000000, 0b00000000);
 
     // Hsync/Vsync duration+porch might be needed at some point, 1.6 FPAR has some pillar boxing
     // This is required for interlaced modes
@@ -420,6 +423,19 @@ inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, c
 
     // Set the vic from the table
     adv7511_write_register(0x3C, vic);
+
+    // Start AVI Infoframe Update
+    adv7511_update_register(0x4A, 0b01000000, 0b01000000);
+    // Infoframe output format to RGB or YCbCr4:4:4
+    adv7511_update_register(0x55, 0b01100000, rgb ? 0b00000000 : 0b01000000);
+    // Set aspect ratio
+    adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);
+    // END AVI Infoframe Update
+    adv7511_update_register(0x4A, 0b01000000, 0b00000000);
+
+    // Disable black image
+    adv7511_update_register(0xD5, 0b00000001, 0b00000000);
+
     debug_log("Actual Pixel Repetition : 0x%02x\r\n", (adv7511_read_register(0x3D) & 0xC0) >> 6);
     debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);
 }

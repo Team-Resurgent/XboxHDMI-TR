@@ -4,9 +4,9 @@ This project aims to a open source alternate firmware for OXHD + MakeMHz's HD+
 
 Based on...
 
-https://github.com/Ryzee119/XboxHDMI-Ryzee119 
+https://github.com/Ryzee119/XboxHDMI-Ryzee119
 
-Notes: 
+Notes:
 
 Ive started to refactor code to make stm32f0 (hd+) + stm32g0 (oxhd) both compilable from the same project, for now stm32f0 is confirmed working.
 
@@ -25,9 +25,9 @@ In order to program HD+ connect the following wires...
 | 6 – 5    | GND         | NC          |
 | 8 – 7    | SWDIO       | SWCLK       |
 
-Note it is recommended you power from motherboard when programming and not use the 3V3 described below.
+Note it is recommended you power from the xbox motherboard when programming and not use the 3V3 described below.
 
-Full pinout for referecne...
+Full pinout for reference...
 
 | Pin Pair | Signal      | Signal      |
 |----------|-------------|-------------|
@@ -36,16 +36,11 @@ Full pinout for referecne...
 | 6 – 5    | GND         | RX          |
 | 8 – 7    | SWDIO       | SWCLK       |
 
-To Do:
 
-Enhance functionality (on-going)
-Check all video modes render correctly (on-going)
-Add ability for stm to be programmed from xbox
+To Do:
+- Enhance functionality (on-going)
+- Check all video modes render correctly (on-going)
+- Add ability for stm to be programmed from xbox
+
 
 EqUiNoX
-
-
-
-
-
-

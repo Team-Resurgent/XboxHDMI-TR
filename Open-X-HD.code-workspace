@@ -15,6 +15,17 @@
 			"stm32f0xx_hal.h": "c",
 			"main.h": "c",
 			"stdbool.h": "c"
-		}
+		},
+		"cSpell.words": [
+			"Cerbios",
+			"CONEXANT",
+			"NRST",
+			"OXHD",
+			"pinout",
+			"Ryzee",
+			"SWCLK",
+			"SWDIO",
+			"XCALIBUR"
+		]
 	}
 }

@@ -1,5 +1,5 @@
-#ifndef __XBOX_VIDEO_H__
-#define __XBOX_VIDEO_H__
+#ifndef __XBOX_VIDEO_BIOS_H__
+#define __XBOX_VIDEO_BIOS_H__
 
 #include <stdint.h>
 
@@ -106,4 +106,4 @@ static const VideoMode FOCUS_TABLE[] = {
     {144, 26,  640,  576,  79, 64, 22,  2, 0}  // 12 640x576_FPAR_PAL_RGB    ?
 };
 
-#endif // __XBOX_H__
+#endif // __XBOX_VIDEO_BIOS_H__

@@ -21,6 +21,7 @@ void adv_handle_interrupts();
 void bios_loop();
 void stand_alone_loop();
 
+void update_avi_infoframe(const bool widescreen, const bool rgb);
 void set_video_mode_vic(const uint8_t mode, const bool wide, const bool interlaced);
 void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video_region region);
 void set_adv_video_mode_bios(const VideoMode video_mode, const bool widescreen, const bool rgb);
@@ -230,6 +231,17 @@ void adv_handle_interrupts()
     }
 }
 
+void update_avi_infoframe(const bool widescreen, const bool rgb) {
+    // Start AVI Infoframe Update
+    adv7511_update_register(0x4A, 0b01000000, 0b01000000);
+    // Infoframe output format to RGB or YCbCr4:4:4
+    adv7511_update_register(0x55, 0b01100000, rgb ? 0b00000000 : 0b01000000);
+    // Set aspect ratio
+    adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);
+    // END AVI Infoframe Update
+    adv7511_update_register(0x4A, 0b01000000, 0b00000000);
+}
+
 void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced)
 {
     if (mode > XBOX_VIDEO_1080i) {
@@ -271,14 +283,7 @@ void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool in
     adv7511_write_register(0x39, (uint8_t)(vs->active_h >> 4));
     adv7511_write_register(0x3A, (uint8_t)(vs->active_h << 4));
 
-    // Start AVI Infoframe Update
-    adv7511_update_register(0x4A, 0b01000000, 0b01000000);
-    // Infoframe output format to YCbCr4:4:4
-    adv7511_update_register(0x55, 0b01100000, 0b01000000);
-    // Set aspect ratio
-    adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);
-    // END AVI Infoframe Update
-    adv7511_update_register(0x4A, 0b01000000, 0b00000000);
+    update_avi_infoframe(widescreen, false);
 
     // For VIC mode
     if (interlaced) {
@@ -387,14 +392,7 @@ inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, c
     // Set the vic from the table
     adv7511_write_register(0x3C, vic);
 
-    // Start AVI Infoframe Update
-    adv7511_update_register(0x4A, 0b01000000, 0b01000000);
-    // Infoframe output format to RGB or YCbCr4:4:4
-    adv7511_update_register(0x55, 0b01100000, rgb ? 0b00000000 : 0b01000000);
-    // Set aspect ratio
-    adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);
-    // END AVI Infoframe Update
-    adv7511_update_register(0x4A, 0b01000000, 0b00000000);
+    update_avi_infoframe(widescreen, rgb);
 }
 
 uint8_t get_vic_from_video_mode(const VideoMode * const vm, const bool widescreen) {

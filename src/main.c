@@ -21,8 +21,9 @@ void bios_loop();
 void stand_alone_loop();
 
 void set_video_mode_vic(const uint8_t mode, const bool wide, const bool interlaced);
-void set_video_mode_bios(const uint32_t mode, const video_region region);
-void set_adv_video_mode_bios(const video_setting * const vs, const video_sync_setting * const vss, const bool widescreen, const bool rgb);
+void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video_region region);
+void set_adv_video_mode_bios(const VideoMode video_mode, const bool widescreen, const bool rgb);
+uint8_t get_vic_from_video_mode(const VideoMode * const vm, const bool widescreen);
 
 void SystemClock_Config(void);
 static void init_gpio(void);
@@ -56,9 +57,9 @@ int main(void)
 
         // Check PLL status
         bool pll_lock = (adv7511_read_register(0x9E) >> 4) & 0x01;
-        led_status1(pll_lock);
+        set_led_1(pll_lock);
 
-        if (bios_tookover()) {
+        if (bios_took_over()) {
             bios_loop();
         }
         else
@@ -146,7 +147,7 @@ void init_adv_encoder_specific()
 
 inline void bios_loop()
 {
-    led_status2(true);
+    set_led_2(true);
 
     if (video_mode_updated()) {
         const SMBusSettings * const vid_settings = getSMBusSettings();
@@ -156,14 +157,14 @@ inline void bios_loop()
             init_adv_encoder_specific();
         }
 
-        set_video_mode_bios(vid_settings->mode, vid_settings->region);
+        set_video_mode_bios(vid_settings->mode, vid_settings->avinfo, vid_settings->region);
         ack_video_mode_update();
     }
 }
 
 inline void stand_alone_loop()
 {
-    led_status2(false);
+    set_led_2(false);
 
     if ((adv7511_read_register(0x3e) >> 2) != (encoder.vic & 0x0F))
     {
@@ -228,14 +229,14 @@ void adv_handle_interrupts()
     }
 }
 
-inline void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced)
+void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced)
 {
     if (mode > XBOX_VIDEO_1080i) {
         debug_log("Invalid video mode for VIC\r\n");
         return;
     }
 
-    const video_setting* vs = NULL;
+    const video_setting_vic* vs = NULL;
     switch (xb_encoder) {
         case ENCODER_CONEXANT:
             vs = &video_settings_conexant[mode];
@@ -296,88 +297,55 @@ inline void set_video_mode_vic(const uint8_t mode, const bool widescreen, const 
 
     // Set the vic from the table
     adv7511_write_register(0x3C, vs->vic);
+
     debug_log("Actual Pixel Repetition : 0x%02x\r\n", (adv7511_read_register(0x3D) & 0xC0) >> 6);
     debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);
 }
 
-void set_video_mode_bios(const uint32_t mode, const video_region region)
+void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video_region region)
 {
-    const video_setting* vs = NULL;
-    const video_sync_setting* vss = NULL;
+    const VideoMode* table;
+    size_t count;
 
     switch (xb_encoder) {
         case ENCODER_CONEXANT:
-            // Look up main table
-            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
-                if (video_settings_conexant_bios[i].mode == mode) {
-                    vs = &video_settings_conexant_bios[i].vs;
-                    break;
-                }
-            }
-
-            // Look up special sync settings if present
-            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_SYNC_COUNT; ++i) {
-                if (video_sync_settings_conexant_bios[i].mode == mode) {
-                    vss = &video_sync_settings_conexant_bios[i].vss;
-                    break;
-                }
-            }
+            table = CONEXANT_TABLE;
+            count = sizeof(CONEXANT_TABLE) / sizeof(CONEXANT_TABLE[0]);
             break;
-
         case ENCODER_FOCUS:
-            // Look up main table
-            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
-                if (video_settings_focus_bios[i].mode == mode) {
-                    vs = &video_settings_focus_bios[i].vs;
-                    break;
-                }
-            }
-
-            // Look up special sync settings if present
-            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_SYNC_COUNT; ++i) {
-                if (video_sync_settings_focus_bios[i].mode == mode) {
-                    vss = &video_sync_settings_focus_bios[i].vss;
-                    break;
-                }
-            }
+            table = FOCUS_TABLE;
+            count = sizeof(FOCUS_TABLE) / sizeof(FOCUS_TABLE[0]);
             break;
-
         case ENCODER_XCALIBUR:
-            // Look up main table
-            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_COUNT; ++i) {
-                if (video_settings_xcalibur_bios[i].mode == mode) {
-                    vs = &video_settings_xcalibur_bios[i].vs;
-                    break;
-                }
-            }
-
-            // Look up special sync settings if present
-            for (int i = 0; i < XBOX_VIDEO_BIOS_MODE_SYNC_COUNT; ++i) {
-                if (video_sync_settings_xcalibur_bios[i].mode == mode) {
-                    vss = &video_sync_settings_xcalibur_bios[i].vss;
-                    break;
-                }
-            }
-            break;
-
         default:
+            table = XCALIBUR_TABLE;
+            count = sizeof(XCALIBUR_TABLE) / sizeof(XCALIBUR_TABLE[0]);
             break;
     }
 
-    // TODO 50Hz is not applied
-
-    const bool widescreen = mode & XBOX_VIDEO_MODE_BIT_WIDESCREEN;
-    const bool rgb = mode & XBOX_VIDEO_MODE_BIT_SCART;
-
-    if (vs != NULL) {
-        set_adv_video_mode_bios(vs, vss, widescreen, rgb);
-    } else {
+    uint32_t mode_index = ((mode >> 16) & 0xff);
+    if (mode_index < 1 || mode_index > count) {
         debug_log("Video mode not present %d\r\n", mode);
         return;
     }
+
+    VideoMode video_mode = table[mode_index - 1];
+
+    // TODO: Figure out if the avinfo is a reliable source for the interlaced flag
+    const bool interlaced = mode_index == 0x0e;
+    // const bool interlaced = avinfo & XBOX_AVINFO_INTERLACED; most modes are progressive on the bus...
+
+    if (interlaced) {
+        video_mode.v_active = video_mode.v_active / 2;
+    }
+
+    const bool widescreen = mode & XBOX_VIDEO_MODE_BIT_WIDESCREEN;
+    const bool rgb = (mode & XBOX_VIDEO_MODE_BIT_SCART);
+
+    set_adv_video_mode_bios(video_mode, widescreen, rgb);
 }
 
-inline void set_adv_video_mode_bios(const video_setting * const vs, const video_sync_setting * const vss, const bool widescreen, const bool rgb)
+inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, const bool rgb)
 {
     // Force pixel repeat to 1 (for forcing VIC)
     adv7511_write_register(0x3B, 0b01100000);
@@ -389,13 +357,33 @@ inline void set_adv_video_mode_bios(const video_setting * const vs, const video_
     }
 
     adv7511_update_register(0x16, 0b00000001, rgb ? 0b00000000 : 0b00000001);
+    // TODO: Figure out if converting RGB to YCbCr is a better idea
+    // adv7511_update_register(0x18, 0b10000000, rgb ? 0b10000000 : 0b00000000);
 
-    adv7511_write_register(0x35, (uint8_t)(vs->delay_hs >> 2));
-    adv7511_write_register(0x36, ((0b00111111 & (uint8_t)vs->delay_vs)) | (0b11000000 & (uint8_t)(vs->delay_hs << 6)));
-    adv7511_update_register(0x37, 0b00011111, (uint8_t)(vs->active_w >> 7)); // 0x37 is shared with interlaced
-    adv7511_write_register(0x38, (uint8_t)(vs->active_w << 1));
-    adv7511_write_register(0x39, (uint8_t)(vs->active_h >> 4));
-    adv7511_write_register(0x3A, (uint8_t)(vs->active_h << 4));
+    adv7511_write_register(0x35, (uint8_t)(vm.hs_delay >> 2));
+    adv7511_write_register(0x36, ((0b00111111 & (uint8_t)vm.vs_delay)) | (0b11000000 & (uint8_t)(vm.hs_delay << 6)));
+    adv7511_update_register(0x37, 0b00011111, (uint8_t)(vm.h_active >> 7)); // 0x37 is shared with interlaced
+    adv7511_write_register(0x38, (uint8_t)(vm.h_active << 1));
+    adv7511_write_register(0x39, (uint8_t)(vm.v_active >> 4));
+    adv7511_write_register(0x3A, (uint8_t)(vm.v_active << 4));
+
+    adv7511_write_register(0xD7, (uint8_t)(vm.hsync_placement >> 2));
+    adv7511_write_register(0xD8, (uint8_t)(vm.hsync_placement << 6) | (vm.hsync_duration  >> 4));
+    adv7511_write_register(0xD9, (uint8_t)(vm.hsync_duration  << 4) | (vm.vsync_placement >> 6));
+    adv7511_write_register(0xDA, (uint8_t)(vm.vsync_placement << 2) | (vm.vsync_duration  >> 8));
+    adv7511_write_register(0xDB, (uint8_t)(vm.vsync_duration));
+    adv7511_write_register(0xDC, (uint8_t)(vm.interlaced_offset << 5));
+
+    // Enable settings
+    adv7511_update_register(0x41, 0b00000010, 0b00000010);
+
+    // Fixes jumping for 1080i, somehow doing this in the init sequence doesn't stick or gets reset
+    adv7511_update_register(0xD0, 0b00000010, 0b00000010);
+
+    uint8_t vic = get_vic_from_video_mode(&vm, widescreen);
+
+    // Set the vic from the table
+    adv7511_write_register(0x3C, vic);
 
     // Start AVI Infoframe Update
     adv7511_update_register(0x4A, 0b01000000, 0b01000000);
@@ -405,32 +393,40 @@ inline void set_adv_video_mode_bios(const video_setting * const vs, const video_
     adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);
     // END AVI Infoframe Update
     adv7511_update_register(0x4A, 0b01000000, 0b00000000);
+}
 
-    // Hsync/Vsync duration+porch might be needed at some point, 1.6 FPAR has some pillar boxing
-    // This is required for interlaced modes
-    if (vss)
-    {
-        adv7511_write_register(0xD7, (uint8_t)(vss->hsync_placement >> 2));
-        adv7511_write_register(0xD8, (uint8_t)(vss->hsync_placement << 6) | (vss->hsync_duration  >> 4));
-        adv7511_write_register(0xD9, (uint8_t)(vss->hsync_duration  << 4) | (vss->vsync_placement >> 6));
-        adv7511_write_register(0xDA, (uint8_t)(vss->vsync_placement << 2) | (vss->vsync_duration  >> 8));
-        adv7511_write_register(0xDB, (uint8_t)(vss->vsync_duration));
-        adv7511_write_register(0xDC, (uint8_t)(vss->interlaced_offset << 5));
+uint8_t get_vic_from_video_mode(const VideoMode * const vm, const bool widescreen) {
+    uint8_t vic;
+    switch (vm->h_active) {
+        case 640:
+        if (vm->v_active == 576) {
+            vic = widescreen ? VIC_18_576p_50_16_9 : VIC_17_576p_50__4_3;
+        } else {
+            vic = widescreen ? VIC_02_480p_60__4_3 : VIC_03_480p_60_16_9;
+        }
+        break;
 
-        // Enable settings
-        adv7511_update_register(0x41, 0b00000010, 0b00000010);
-    } else {
-        // Disable sync settings
-        adv7511_update_register(0x41, 0b00000010, 0b00000000);
+        case 720:
+        if (vm->v_active == 576) {
+            vic = widescreen ? VIC_18_576p_50_16_9 : VIC_17_576p_50__4_3;
+        } else {
+            vic = widescreen ? VIC_02_480p_60__4_3 : VIC_03_480p_60_16_9;
+        }
+        break;
+
+        case 1280:
+        vic = VIC_04_720p_60_16_9;
+        break;
+
+        case 1920:
+        vic = VIC_05_1080i_60_16_9;
+        break;
+
+        default:
+        vic = VIC_00_VIC_Unavailable;
+        break;
     }
-
-    // Fixes jumping for 1080i, somehow doing this in the init sequence doesnt stick or gets reset
-    adv7511_update_register(0xD0, 0b00000010, 0b00000010);
-
-    // Set the vic from the table
-    adv7511_write_register(0x3C, vs->vic);
-    debug_log("Actual Pixel Repetition : 0x%02x\r\n", (adv7511_read_register(0x3D) & 0xC0) >> 6);
-    debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);
+    return vic;
 }
 
 // TODO split this out

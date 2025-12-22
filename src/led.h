@@ -6,7 +6,7 @@
 #include <stdbool.h>
 
 void led_init();
-void led_status1(bool state);
-void led_status2(bool state);
+void set_led_1(bool state); // Green led for the HD+
+void set_led_2(bool state); // Blue led for the HD+
 
 #endif // __LED_H__

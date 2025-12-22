@@ -41,7 +41,7 @@ static uint8_t dataByte = 0;
 static uint8_t responseByte = 0x42;  // default response
 
 static bool video_mode_update_pending = false;
-static bool bios_tookover_control = false;
+static bool bios_took_over_control = false;
 
 // -------------------- Initialization --------------------
 void smbus_i2c_init(void)
@@ -328,7 +328,7 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                 }
                 case I2C_HDMI_COMMAND_WRITE_APPLY:
                 {
-                    bios_tookover_control = true;
+                    bios_took_over_control = true;
 
                     if (dataByte == 0x01)
                     {
@@ -412,8 +412,8 @@ const SMBusSettings * const getSMBusSettings() {
     return &settings;
 }
 
-bool bios_tookover() {
-    return bios_tookover_control;
+bool bios_took_over() {
+    return bios_took_over_control;
 }
 
 // -------------------- IRQ Handler --------------------

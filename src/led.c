@@ -2,7 +2,7 @@
 
 static GPIO_InitTypeDef gpio;
 
-void led_init() 
+void led_init()
 {
     __HAL_RCC_GPIOC_CLK_ENABLE();
 
@@ -12,12 +12,12 @@ void led_init()
     HAL_GPIO_Init(GPIOC, &gpio);
 }
 
-void led_status1(bool state)
+void set_led_1(bool state)
 {
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
-void led_status2(bool state)
+void set_led_2(bool state)
 {
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }

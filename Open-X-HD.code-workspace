@@ -15,6 +15,34 @@
 			"stm32f0xx_hal.h": "c",
 			"main.h": "c",
 			"stdbool.h": "c"
-		}
+		},
+		"cSpell.words": [
+			"avinfo",
+			"Cerbios",
+			"CONEXANT",
+			"EXTI",
+			"FPAR",
+			"GPIOA",
+			"GPIOB",
+			"GPIOC",
+			"GPIOD",
+			"GPIOE",
+			"GPIOF",
+			"HSYNC",
+			"NRST",
+			"NTSC",
+			"NTSCJ",
+			"NTSCM",
+			"NVIC",
+			"OXHD",
+			"pinout",
+			"Ryzee",
+			"SCART",
+			"SDTV",
+			"smbus",
+			"SWCLK",
+			"SWDIO",
+			"XCALIBUR"
+		]
 	}
 }

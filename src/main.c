@@ -8,7 +8,8 @@
 #include "adv7511.h"
 #include "debug.h"
 #include "led.h"
-#include "xbox_video.h"
+#include "xbox_video_bios.h"
+#include "xbox_video_standalone.h"
 
 adv7511 encoder;
 xbox_encoder xb_encoder;
@@ -332,15 +333,16 @@ void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video
     VideoMode video_mode = table[mode_index - 1];
 
     // TODO: Figure out if the avinfo is a reliable source for the interlaced flag
-    const bool interlaced = mode_index == 0x0e;
-    // const bool interlaced = avinfo & XBOX_AVINFO_INTERLACED; most modes are progressive on the bus...
+    // const bool interlaced = mode_index == 0x0e;
+    // most modes are progressive on the bus...
+    const bool interlaced = avinfo & XBOX_AVINFO_INTERLACED;
 
     if (interlaced) {
         video_mode.v_active = video_mode.v_active / 2;
     }
 
     const bool widescreen = mode & XBOX_VIDEO_MODE_BIT_WIDESCREEN;
-    const bool rgb = (mode & XBOX_VIDEO_MODE_BIT_SCART);
+    const bool rgb = mode & XBOX_VIDEO_MODE_BIT_SCART;
 
     set_adv_video_mode_bios(video_mode, widescreen, rgb);
 }

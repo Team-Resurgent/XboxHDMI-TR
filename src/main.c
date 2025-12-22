@@ -270,12 +270,6 @@ void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool in
 
     debug_log("Set %d mode, widescree %s, interlaced %s\r\n", mode, widescreen ? "true" : "false", interlaced ? "true" : "false");
 
-    if (widescreen) {
-        adv7511_write_register(0x56, 0b00101000); // 16:9
-    } else {
-        adv7511_write_register(0x56, 0b00011000); // 4:3
-    }
-
     adv7511_write_register(0x35, (uint8_t)(vs->delay_hs >> 2));
     adv7511_write_register(0x36, ((0b00111111 & (uint8_t)vs->delay_vs)) | (0b11000000 & (uint8_t)(vs->delay_hs << 6)));
     adv7511_update_register(0x37, 0b00011111, (uint8_t)(vs->active_w >> 7)); // 0x37 is shared with interlaced
@@ -356,12 +350,6 @@ inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, c
 {
     // Force pixel repeat to 1 (for forcing VIC)
     adv7511_write_register(0x3B, 0b01100000);
-
-    if (widescreen) {
-        adv7511_write_register(0x56, 0b00101000); // 16:9
-    } else {
-        adv7511_write_register(0x56, 0b00011000); // 4:3
-    }
 
     adv7511_update_register(0x16, 0b00000001, rgb ? 0b00000000 : 0b00000001);
     // TODO: Figure out if converting RGB to YCbCr is a better idea

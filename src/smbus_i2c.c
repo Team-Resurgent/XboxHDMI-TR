@@ -269,6 +269,194 @@ static uint32_t calculate_firmware_size(void)
     return (last_page + 1) * FLASH_PAGE_SIZE;
 }
 
+// Firmware update state
+static bool fw_update_mode = false;
+static uint16_t fw_page_addr = 0;  // Current page address (0-63 for 64KB)
+static uint16_t fw_byte_index = 0;  // Current byte index within page (0-1023)
+static uint8_t fw_page_buffer[FLASH_PAGE_SIZE];  // Buffer for one flash page
+static uint32_t fw_crc32 = 0;  // Calculated CRC32
+static uint8_t fw_crc_read_index = 0;  // For reading CRC32 byte-by-byte
+static uint32_t fw_read_addr = APP_START_ADDR;  // Current firmware read address
+static uint32_t fw_size = 0;  // Calculated firmware size in bytes
+static uint8_t fw_size_read_index = 0;  // For reading firmware size byte-by-byte
+
+// -------------------- CRC32 Calculation --------------------
+static uint32_t crc32_table[256];
+static bool crc32_table_initialized = false;
+
+static void init_crc32_table(void)
+{
+    uint32_t crc;
+    for (uint32_t i = 0; i < 256; i++)
+    {
+        crc = i;
+        for (uint32_t j = 0; j < 8; j++)
+        {
+            if (crc & 1)
+                crc = (crc >> 1) ^ 0xEDB88320;
+            else
+                crc >>= 1;
+        }
+        crc32_table[i] = crc;
+    }
+    crc32_table_initialized = true;
+}
+
+// -------------------- Flash Programming --------------------
+static HAL_StatusTypeDef flash_erase_page(uint32_t page_addr)
+{
+    FLASH_EraseInitTypeDef EraseInitStruct;
+    uint32_t PageError = 0;
+    uint32_t flash_addr = FLASH_BASE_ADDR + (page_addr * FLASH_PAGE_SIZE);
+
+    // Check if address is within application range
+    if (flash_addr < APP_START_ADDR || flash_addr >= APP_END_ADDR)
+    {
+        debug_log("Flash erase: Invalid address 0x%08X\r\n", flash_addr);
+        return HAL_ERROR;
+    }
+
+    // Unlock flash
+    HAL_FLASH_Unlock();
+
+    EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
+    EraseInitStruct.PageAddress = flash_addr;
+    EraseInitStruct.NbPages = 1;
+
+    HAL_StatusTypeDef status = HAL_FLASHEx_Erase(&EraseInitStruct, &PageError);
+
+    HAL_FLASH_Lock();
+
+    if (status != HAL_OK)
+    {
+        debug_log("Flash erase failed: %d\r\n", status);
+    }
+    else
+    {
+        debug_log("Flash page %d erased at 0x%08X\r\n", page_addr, flash_addr);
+    }
+
+    return status;
+}
+
+static HAL_StatusTypeDef flash_write_page(uint32_t page_addr, const uint8_t *data)
+{
+    uint32_t flash_addr = FLASH_BASE_ADDR + (page_addr * FLASH_PAGE_SIZE);
+
+    // Check if address is within application range
+    if (flash_addr < APP_START_ADDR || flash_addr >= APP_END_ADDR)
+    {
+        debug_log("Flash write: Invalid address 0x%08X\r\n", flash_addr);
+        return HAL_ERROR;
+    }
+
+    // Unlock flash
+    HAL_FLASH_Unlock();
+
+    HAL_StatusTypeDef status = HAL_OK;
+    // Write half-words (16-bit) as required by STM32F0
+    for (uint32_t i = 0; i < FLASH_PAGE_SIZE; i += 2)
+    {
+        uint16_t halfword = data[i] | (data[i + 1] << 8);
+        status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, flash_addr + i, halfword);
+        if (status != HAL_OK)
+        {
+            debug_log("Flash write failed at offset %d: %d\r\n", i, status);
+            break;
+        }
+    }
+
+    HAL_FLASH_Lock();
+
+    if (status == HAL_OK)
+    {
+        debug_log("Flash page %d written at 0x%08X\r\n", page_addr, flash_addr);
+    }
+
+    return status;
+}
+
+static uint32_t flash_verify_crc32(uint32_t start_addr, uint32_t length)
+{
+    uint8_t buffer[256];  // Read in chunks
+    uint32_t crc = 0xFFFFFFFF;
+
+    if (!crc32_table_initialized)
+        init_crc32_table();
+
+    // Calculate CRC32 incrementally across all flash data
+    for (uint32_t offset = 0; offset < length; offset += sizeof(buffer))
+    {
+        uint32_t chunk_size = (length - offset < sizeof(buffer)) ? (length - offset) : sizeof(buffer);
+        const uint8_t *flash_ptr = (const uint8_t *)(start_addr + offset);
+
+        // Update CRC32 for this chunk (incremental calculation)
+        for (uint32_t i = 0; i < chunk_size; i++)
+        {
+            crc = (crc >> 8) ^ crc32_table[(crc ^ flash_ptr[i]) & 0xFF];
+        }
+    }
+
+    return crc ^ 0xFFFFFFFF;
+}
+
+// -------------------- Firmware Size Calculation --------------------
+static uint32_t calculate_firmware_size(void)
+{
+    // Start from the end and work backwards to find the last non-empty page
+    // A page is considered empty if all bytes are 0xFF (erased flash)
+    uint32_t last_page = 0;
+    bool found_data = false;
+    
+    // Check pages from end to beginning
+    for (int32_t page = FLASH_PAGE_COUNT - 1; page >= 0; page--)
+    {
+        uint32_t page_addr = FLASH_BASE_ADDR + (page * FLASH_PAGE_SIZE);
+        const uint8_t *page_ptr = (const uint8_t *)page_addr;
+        
+        // Check if page contains any non-0xFF data
+        bool page_has_data = false;
+        for (uint32_t i = 0; i < FLASH_PAGE_SIZE; i++)
+        {
+            if (page_ptr[i] != 0xFF)
+            {
+                page_has_data = true;
+                found_data = true;
+                break;
+            }
+        }
+        
+        if (page_has_data)
+        {
+            last_page = page;
+            break;
+        }
+    }
+    
+    if (!found_data)
+    {
+        // No firmware found, return minimum size (vector table is at least 8 bytes)
+        // Check if vector table is valid
+        const uint32_t *vector_table = (const uint32_t *)APP_START_ADDR;
+        uint32_t stack_ptr = vector_table[0];
+        uint32_t reset_handler = vector_table[1];
+        
+        // Basic validation: stack pointer should be in RAM range (0x20000000-0x20002000 for 8KB)
+        // Reset handler should be in flash range (0x08000000-0x08010000)
+        if ((stack_ptr >= 0x20000000 && stack_ptr < 0x20002000) &&
+            (reset_handler >= 0x08000000 && reset_handler < 0x08010000))
+        {
+            // Vector table is valid, firmware exists but might be very small
+            // Return at least one page
+            return FLASH_PAGE_SIZE;
+        }
+        return 0;
+    }
+    
+    // Return size up to and including the last page with data
+    return (last_page + 1) * FLASH_PAGE_SIZE;
+}
+
 // -------------------- Initialization --------------------
 void smbus_i2c_init(void)
 {

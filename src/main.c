@@ -21,7 +21,7 @@ void adv_handle_interrupts();
 void bios_loop();
 void stand_alone_loop();
 
-void update_avi_infoframe(const bool widescreen, const bool rgb);
+void update_avi_infoframe(const bool widescreen);
 void set_video_mode_vic(const uint8_t mode, const bool wide, const bool interlaced);
 void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video_region region);
 void set_adv_video_mode_bios(const VideoMode video_mode, const bool widescreen, const bool rgb);
@@ -51,7 +51,8 @@ int main(void)
     init_adv();
     smbus_i2c_init();
 
-    apply_csc((uint8_t *)identityMatrix);
+    // Set up the color space correction, toggle if needed later on
+    apply_csc((uint8_t *)CscRgbToYuv601);
 
     while (true)
     {
@@ -90,7 +91,7 @@ inline void init_adv()
     HAL_Delay(50);
 
     // Set video input mode to YCbCr 444, 12bit databus DDR
-    adv7511_write_register(0x15, 0b000000101);
+    adv7511_write_register(0x15, 0b00000101);
 
     // Set Output Format to 4:4:4
     // 8 bit video
@@ -231,11 +232,11 @@ void adv_handle_interrupts()
     }
 }
 
-void update_avi_infoframe(const bool widescreen, const bool rgb) {
+void update_avi_infoframe(const bool widescreen) {
     // Start AVI Infoframe Update
     adv7511_update_register(0x4A, 0b01000000, 0b01000000);
     // Infoframe output format to RGB or YCbCr4:4:4
-    adv7511_update_register(0x55, 0b01100000, rgb ? 0b00000000 : 0b01000000);
+    adv7511_update_register(0x55, 0b01100000, 0b01000000);
     // Set aspect ratio
     adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);
     // END AVI Infoframe Update
@@ -268,7 +269,10 @@ void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool in
             return;
     }
 
-    debug_log("Set %d mode, widescree %s, interlaced %s\r\n", mode, widescreen ? "true" : "false", interlaced ? "true" : "false");
+    debug_log("Set %d mode, widescreen %s, interlaced %s\r\n", mode, widescreen ? "true" : "false", interlaced ? "true" : "false");
+
+    // Make sure CSC is off
+    adv7511_update_register(0x18, 0b10000000, 0b00000000);
 
     adv7511_write_register(0x35, (uint8_t)(vs->delay_hs >> 2));
     adv7511_write_register(0x36, ((0b00111111 & (uint8_t)vs->delay_vs)) | (0b11000000 & (uint8_t)(vs->delay_hs << 6)));
@@ -277,7 +281,7 @@ void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool in
     adv7511_write_register(0x39, (uint8_t)(vs->active_h >> 4));
     adv7511_write_register(0x3A, (uint8_t)(vs->active_h << 4));
 
-    update_avi_infoframe(widescreen, false);
+    update_avi_infoframe(widescreen);
 
     // For VIC mode
     if (interlaced) {
@@ -351,9 +355,8 @@ inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, c
     // Force pixel repeat to 1 (for forcing VIC)
     adv7511_write_register(0x3B, 0b01100000);
 
-    adv7511_update_register(0x16, 0b00000001, rgb ? 0b00000000 : 0b00000001);
-    // TODO: Figure out if converting RGB to YCbCr is a better idea
-    // adv7511_update_register(0x18, 0b10000000, rgb ? 0b10000000 : 0b00000000);
+    // Convert RGB to YCbCr if in RGB mode
+    adv7511_update_register(0x18, 0b10000000, rgb ? 0b10000000 : 0b00000000);
 
     adv7511_write_register(0x35, (uint8_t)(vm.hs_delay >> 2));
     adv7511_write_register(0x36, ((0b00111111 & (uint8_t)vm.vs_delay)) | (0b11000000 & (uint8_t)(vm.hs_delay << 6)));
@@ -380,7 +383,7 @@ inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, c
     // Set the vic from the table
     adv7511_write_register(0x3C, vic);
 
-    update_avi_infoframe(widescreen, rgb);
+    update_avi_infoframe(widescreen);
 }
 
 uint8_t get_vic_from_video_mode(const VideoMode * const vm, const bool widescreen) {

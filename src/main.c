@@ -16,7 +16,10 @@ xbox_encoder xb_encoder;
 
 void init_adv();
 void init_adv_encoder_specific();
+void init_adv_audio();
 void adv_handle_interrupts();
+void adv_disable_video();
+void adv_enable_video();
 
 void bios_loop();
 void stand_alone_loop();
@@ -62,6 +65,8 @@ int main(void)
         bool pll_lock = (adv7511_read_register(0x9E) >> 4) & 0x01;
         set_led_1(pll_lock);
 
+        adv_handle_interrupts();
+
         if (bios_took_over()) {
             bios_loop();
         }
@@ -69,15 +74,12 @@ int main(void)
         {
             stand_alone_loop();
         }
-
-        adv_handle_interrupts();
     }
 }
 
 inline void init_adv()
 {
     adv7511_i2c_init();
-
     HAL_Delay(50);
 
     // Initialise the encoder object
@@ -99,6 +101,8 @@ inline void init_adv()
     // Set DDR Input Rising Edge
     adv7511_write_register(0x16, 0b00111011);
 
+    update_avi_infoframe(false);
+
     // Setup encoder specific stuff
     init_adv_encoder_specific();
 
@@ -111,17 +115,7 @@ inline void init_adv()
     // Enable General Control Packet CHECK
     adv7511_update_register(0x40, 0b10000000, 0b10000000);
 
-    // SETUP AUDIO
-    // Set 48kHz Audio clock CHECK (N Value)
-    adv7511_write_register(0x01, 0x00);
-    adv7511_write_register(0x02, 0x18);
-    adv7511_write_register(0x03, 0x00);
-
-    // Set SPDIF audio source
-    adv7511_update_register(0x0A, 0b01110000, 0b00010000);
-
-    // SPDIF enable
-    adv7511_update_register(0x0B, 0b10000000, 0b10000000);
+    init_adv_audio();
 }
 
 void init_adv_encoder_specific()
@@ -135,7 +129,6 @@ void init_adv_encoder_specific()
         adv7511_write_register(0xD0, 0b00111110);
         // -0.4ns clock delay
         adv7511_write_register(0xBA, 0b01000000);
-        return;
     } else {
         // LSB .... MSB Reverse Bus Order, DDR Alignment D[17:0] (right aligned)
         adv7511_write_register(0x48, 0b01000000);
@@ -144,9 +137,32 @@ void init_adv_encoder_specific()
         adv7511_write_register(0xD0, 0b10111110);
         // No clock delay
         adv7511_write_register(0xBA, 0b01100000);
-        return;
     }
 }
+
+inline void init_adv_audio() {
+    // Set 48kHz Audio clock CHECK (N Value)
+    adv7511_write_register(0x01, 0x00);
+    adv7511_write_register(0x02, 0x18);
+    adv7511_write_register(0x03, 0x00);
+
+    // Set SPDIF audio source
+    adv7511_update_register(0x0A, 0b01110000, 0b00010000);
+
+    // SPDIF enable
+    adv7511_update_register(0x0B, 0b10000000, 0b10000000);
+}
+
+inline void adv_disable_video() {
+    // Gate ouput
+    adv7511_update_register(0xD6, 0b00000001, 0b00000001);
+}
+
+inline void adv_enable_video() {
+    // Enable ouput
+    adv7511_update_register(0xD6, 0b00000001, 0b00000000);
+}
+
 
 inline void bios_loop()
 {

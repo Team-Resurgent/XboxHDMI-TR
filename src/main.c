@@ -12,7 +12,15 @@
 #include "xbox_video_standalone.h"
 
 adv7511 encoder;
-xbox_encoder xb_encoder;
+
+// Allow user to force any of the 3 encoders, only required for vic mode
+#ifdef BUILD_XCALIBUR
+    xbox_encoder xb_encoder = ENCODER_XCALIBUR;
+#elif BUILD_FOCUS
+    xbox_encoder xb_encoder = ENCODER_FOCUS;
+#else
+    xbox_encoder xb_encoder = ENCODER_CONEXANT;
+#endif
 
 void init_adv();
 void init_adv_encoder_specific();
@@ -35,15 +43,6 @@ static void init_gpio(void);
 
 int main(void)
 {
-    // TODO Allow user to force any of the 3 encoders
-#ifdef BUILD_XCALIBUR
-    xb_encoder = ENCODER_XCALIBUR;
-#elif BUILD_FOCUS
-    xb_encoder = ENCODER_FOCUS;
-#else
-    xb_encoder = ENCODER_CONEXANT;
-#endif
-
     HAL_Init();
     SystemClock_Config();
 
@@ -53,9 +52,6 @@ int main(void)
 
     init_adv();
     smbus_i2c_init();
-
-    // Set up the color space correction for RGB signals, disabled by default
-    apply_csc((uint8_t *)CscRgbToYuv601);
 
     while (true)
     {
@@ -118,6 +114,9 @@ inline void init_adv()
     adv7511_update_register(0x40, 0b10000000, 0b10000000);
 
     init_adv_audio();
+
+    // Set up the color space correction for RGB signals, disabled by default
+    apply_csc((uint8_t *)CscRgbToYuv601);
 }
 
 void init_adv_encoder_specific()

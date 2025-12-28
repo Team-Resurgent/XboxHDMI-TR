@@ -54,7 +54,7 @@ int main(void)
     init_adv();
     smbus_i2c_init();
 
-    // Set up the color space correction, toggle if needed later on
+    // Set up the color space correction for RGB signals, disabled by default
     apply_csc((uint8_t *)CscRgbToYuv601);
 
     while (true)
@@ -68,10 +68,12 @@ int main(void)
         adv_handle_interrupts();
 
         if (bios_took_over()) {
+            set_led_2(true);
             bios_loop();
         }
         else
         {
+            set_led_2(false);
             stand_alone_loop();
         }
     }
@@ -166,8 +168,6 @@ inline void adv_enable_video() {
 
 inline void bios_loop()
 {
-    set_led_2(true);
-
     if (video_mode_updated()) {
         const SMBusSettings * const vid_settings = getSMBusSettings();
         // Detect the encoder, if it changed reinit encoder specific values
@@ -183,8 +183,6 @@ inline void bios_loop()
 
 inline void stand_alone_loop()
 {
-    set_led_2(false);
-
     if ((adv7511_read_register(0x3e) >> 2) != (encoder.vic & 0x0F))
     {
         // Set MSB to 1. This indicates a recent change.
@@ -251,7 +249,7 @@ void adv_handle_interrupts()
 void update_avi_infoframe(const bool widescreen) {
     // Start AVI Infoframe Update
     adv7511_update_register(0x4A, 0b01000000, 0b01000000);
-    // Infoframe output format to RGB or YCbCr4:4:4
+    // Infoframe output format to YCbCr4:4:4
     adv7511_update_register(0x55, 0b01100000, 0b01000000);
     // Set aspect ratio
     adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);

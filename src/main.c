@@ -356,6 +356,7 @@ void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video
 
     if (interlaced) {
         video_mode.v_active = video_mode.v_active / 2;
+        video_mode.vs_delay = video_mode.vs_delay / 2;
     }
 
     const bool widescreen = mode & XBOX_VIDEO_MODE_BIT_WIDESCREEN;

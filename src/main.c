@@ -78,7 +78,6 @@ int main(void)
 inline void init_adv()
 {
     adv7511_i2c_init();
-    HAL_Delay(50);
 
     // Initialise the encoder object
     adv7511_struct_init(&encoder);

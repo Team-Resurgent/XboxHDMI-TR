@@ -94,8 +94,8 @@ inline void init_adv()
     adv7511_power_up(&encoder);
     HAL_Delay(50);
 
-    // Set video input mode to YCbCr 444, 12bit databus DDR
-    adv7511_write_register(0x15, 0b00000101);
+    // Set video input mode to RGB/YCbCr 4:4:4, 12bit databus DDR. Audio to 48kHz
+    adv7511_write_register(0x15, 0b00100101);
 
     // Set Output Format to 4:4:4
     // 8 bit video
@@ -335,9 +335,12 @@ void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video
             count = sizeof(FOCUS_TABLE) / sizeof(FOCUS_TABLE[0]);
             break;
         case ENCODER_XCALIBUR:
-        default:
             table = XCALIBUR_TABLE;
             count = sizeof(XCALIBUR_TABLE) / sizeof(XCALIBUR_TABLE[0]);
+            break;
+        default:
+            table = NULL;
+            count = 0;
             break;
     }
 

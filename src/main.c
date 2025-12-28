@@ -105,7 +105,7 @@ inline void init_adv() {
     adv7511_update_register(0x17, 0b00000001, 0b00000001);
 
     // Set Output to HDMI Mode (Instead of DVI Mode)
-    adv7511_write_register(0xAF, 0b00000010);
+    adv7511_update_register(0xAF, 0b00000010, 0b00000010);
 
     // Enable General Control Packet CHECK
     adv7511_update_register(0x40, 0b10000000, 0b10000000);

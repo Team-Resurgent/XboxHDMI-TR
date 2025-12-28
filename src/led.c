@@ -2,7 +2,7 @@
 
 static GPIO_InitTypeDef gpio;
 
-void led_init()
+void init_led()
 {
     __HAL_RCC_GPIOC_CLK_ENABLE();
 

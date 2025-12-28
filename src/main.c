@@ -41,15 +41,14 @@ uint8_t get_vic_from_video_mode(const VideoMode * const vm, const bool widescree
 void SystemClock_Config(void);
 static void init_gpio(void);
 
-int main(void)
-{
+int main(void) {
+    // STM
     HAL_Init();
     SystemClock_Config();
 
     debug_init();
     init_gpio();
-    led_init();
-
+    init_led();
     init_adv();
     smbus_i2c_init();
 
@@ -75,8 +74,7 @@ int main(void)
     }
 }
 
-inline void init_adv()
-{
+inline void init_adv() {
     adv7511_i2c_init();
 
     // Initialise the encoder object
@@ -100,7 +98,7 @@ inline void init_adv()
 
     update_avi_infoframe(false);
 
-    // Setup encoder specific stuff
+    // Setup xbox encoder specific stuff (Xcalibur uses different settings)
     init_adv_encoder_specific();
 
     // Enable DE generation. This is derived from HSYNC,VSYNC for video active framing
@@ -118,10 +116,8 @@ inline void init_adv()
     apply_csc((uint8_t *)CscRgbToYuv601);
 }
 
-void init_adv_encoder_specific()
-{
-    if (xb_encoder == ENCODER_XCALIBUR)
-    {
+void init_adv_encoder_specific() {
+    if (xb_encoder == ENCODER_XCALIBUR) {
         // Normal Bus Order, DDR Alignment D[35:18] (left aligned)
         adv7511_write_register(0x48, 0b00100000);
         // Disable DDR Negative Edge CLK Delay, with 0ps delay
@@ -163,9 +159,7 @@ inline void adv_enable_video() {
     adv7511_update_register(0xD6, 0b00000001, 0b00000000);
 }
 
-
-inline void bios_loop()
-{
+inline void bios_loop() {
     if (video_mode_updated()) {
         const SMBusSettings * const vid_settings = getSMBusSettings();
         // Detect the encoder, if it changed reinit encoder specific values
@@ -179,62 +173,49 @@ inline void bios_loop()
     }
 }
 
-inline void stand_alone_loop()
-{
-    if ((adv7511_read_register(0x3e) >> 2) != (encoder.vic & 0x0F))
-    {
+inline void stand_alone_loop() {
+    if ((adv7511_read_register(0x3e) >> 2) != (encoder.vic & 0x0F)) {
         // Set MSB to 1. This indicates a recent change.
         encoder.vic = ADV7511_VIC_CHANGED | adv7511_read_register(0x3e) >> 2;
         debug_log("Detected VIC#: 0x%02x\r\n", encoder.vic & ADV7511_VIC_CHANGED_CLEAR);
     }
 
-    if (encoder.vic & ADV7511_VIC_CHANGED)
-    {
+    if (encoder.vic & ADV7511_VIC_CHANGED) {
         encoder.vic &= ADV7511_VIC_CHANGED_CLEAR;
 
-        if (encoder.vic == VIC_01_VGA_640x480_4_3)
-        {
+        if (encoder.vic == VIC_01_VGA_640x480_4_3) {
             set_video_mode_vic(XBOX_VIDEO_VGA, false, false);
         }
-        else if (encoder.vic == VIC_02_480p_60__4_3 || encoder.vic == VIC_00_VIC_Unavailable)
-        {
+        else if (encoder.vic == VIC_02_480p_60__4_3 || encoder.vic == VIC_00_VIC_Unavailable) {
             set_video_mode_vic(XBOX_VIDEO_480p_640, false, false);
         }
-        else if (encoder.vic == VIC_03_480p_60_16_9)
-        {
+        else if (encoder.vic == VIC_03_480p_60_16_9) {
             set_video_mode_vic(XBOX_VIDEO_480p_720, true, false);
         }
-        else if (encoder.vic == VIC_04_720p_60_16_9)
-        {
+        else if (encoder.vic == VIC_04_720p_60_16_9) {
             set_video_mode_vic(XBOX_VIDEO_720p, true, false);
         }
-        else if (encoder.vic == VIC_05_1080i_60_16_9)
-        {
+        else if (encoder.vic == VIC_05_1080i_60_16_9) {
             set_video_mode_vic(XBOX_VIDEO_1080i, true, true);
         }
     }
 }
 
-void adv_handle_interrupts()
-{
-    if (encoder.interrupt)
-    {
+void adv_handle_interrupts() {
+    if (encoder.interrupt) {
         uint8_t interrupt_register = adv7511_read_register(0x96);
 
-        if (interrupt_register & ADV7511_INT0_HPD)
-        {
+        if (interrupt_register & ADV7511_INT0_HPD) {
             // debug_log("HPD interrupt\r\n");
             encoder.hot_plug_detect = (adv7511_read_register(0x42) >> 6) & 0x01;
         }
 
-        if (interrupt_register & ADV7511_INT0_MONITOR_SENSE)
-        {
+        if (interrupt_register & ADV7511_INT0_MONITOR_SENSE) {
             // debug_log("Monitor Sense Interrupt\r\n");
             encoder.monitor_sense = (adv7511_read_register(0x42) >> 5) & 0x01;
         }
 
-        if (encoder.hot_plug_detect && encoder.monitor_sense)
-        {
+        if (encoder.hot_plug_detect && encoder.monitor_sense) {
             adv7511_power_up(&encoder);
         }
 
@@ -255,8 +236,7 @@ void update_avi_infoframe(const bool widescreen) {
     adv7511_update_register(0x4A, 0b01000000, 0b00000000);
 }
 
-void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced)
-{
+void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced) {
     if (mode > XBOX_VIDEO_1080i) {
         debug_log("Invalid video mode for VIC\r\n");
         return;
@@ -318,8 +298,7 @@ void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool in
     debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);
 }
 
-void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video_region region)
-{
+void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video_region region) {
     const VideoMode* table;
     size_t count;
 
@@ -366,8 +345,7 @@ void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video
     set_adv_video_mode_bios(video_mode, widescreen, rgb);
 }
 
-inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, const bool rgb)
-{
+inline void set_adv_video_mode_bios(const VideoMode vm, const bool widescreen, const bool rgb) {
     // Force pixel repeat to 1 (for forcing VIC)
     adv7511_write_register(0x3B, 0b01100000);
 
@@ -437,8 +415,7 @@ uint8_t get_vic_from_video_mode(const VideoMode * const vm, const bool widescree
 }
 
 // TODO split this out
-static void init_gpio(void)
-{
+static void init_gpio(void) {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
     GPIO_InitStruct.Pin = GPIO_PIN_7;
@@ -451,8 +428,7 @@ static void init_gpio(void)
     HAL_NVIC_EnableIRQ(EXTI0_1_IRQn);
 }
 
-void _Error_Handler(char *file, int line)
-{
+void _Error_Handler(char *file, int line) {
     debug_log("Error in file %s at line %d\n", file, line);
     while (1) {}
 }

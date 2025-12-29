@@ -10,10 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        variant:
+        include:
           - env: xboxhdmi_stm32f0
-            name: connexant_focus
-            defines: ""
+            name: connexant
+            defines: "-DBUILD_CONEXANT"
+          - env: xboxhdmi_stm32f0
+            name: focus
+            defines: "-DBUILD_FOCUS"
           - env: xboxhdmi_stm32f0
             name: xcalibur
             defines: "-DBUILD_XCALIBUR"

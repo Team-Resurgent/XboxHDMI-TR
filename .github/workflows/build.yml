@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        values:
+        variant:
           - env: xboxhdmi_stm32f0
             name: connexant
             defines: "-DBUILD_CONEXANT"
@@ -98,5 +98,6 @@ jobs:
         draft: false
         files: |
           release-artifacts/*
+
 
 

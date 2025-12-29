@@ -28,6 +28,7 @@ typedef enum {
 #define XBOX_VIDEO_MODE_MASK           0x0000FFFF
 // Avinfo
 #define XBOX_AVINFO_INTERLACED         0x00200000
+#define XBOX_AVINFO_FILED              0x01000000
 
 #pragma pack(1)
 typedef struct {

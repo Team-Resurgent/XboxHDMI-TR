@@ -1,7 +1,6 @@
 #include "stm32f0xx_hal.h"
 #include "stm32f0xx.h"
-
-void _Error_Handler(char *file, int line);
+#include "../error_handler.h"
 
 void SystemClock_Config(void)
 {

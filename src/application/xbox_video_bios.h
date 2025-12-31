@@ -82,7 +82,7 @@ static const VideoMode CONEXANT_TABLE[] = {
     {235, 41, 1920, 1080,  44,  88,  3, 10, 0}, // 0E 1080i                   Untested
     {165, 34,  640,  480,  48,  32, 10,  3, 0}, // 0F 640x480_FPAR_NTSC_RGB   OK
     {318, 34,  640,  480,  91,  32, 10,  3, 0}, // 10 640x480_FPAR_PAL_RGB    OK
-    {153, 36,  654,  480,  15,  63,  8,  6, 0}, // 11 640x480_FPAR_480P       OK
+    {120, 36,  720,  480,  17,  63,  8,  6, 0}, // 11 640x480_FPAR_480P       Pillar boxed
     {179, 39,  640,  576,  48,  32,  9,  3, 0}  // 12 640x576_FPAR_PAL_RGB    Cropped vertically
 };
 

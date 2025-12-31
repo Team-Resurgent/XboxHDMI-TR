@@ -1,5 +1,5 @@
 #include "adv7511_i2c.h"
-#include "debug.h"
+#include "../shared/debug.h"
 
 static I2C_HandleTypeDef hi2c1;
 

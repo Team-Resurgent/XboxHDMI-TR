@@ -68,6 +68,7 @@
   */
 
 #include "stm32f0xx.h"
+#include "../defines.h"
 #if !defined(HSE_VALUE)
 #define HSE_VALUE ((uint32_t)8000000) /*!< Default value of the External oscillator in Hz. \
                                            This value can be provided and adapted by the user application. */
@@ -146,6 +147,13 @@ void SystemInit(void)
 
     /* Disable all interrupts */
     RCC->CIR = 0x00000000U;
+    
+    /* Note: STM32F0 (Cortex-M0) does not have VTOR register.
+     * The vector table is fixed at 0x00000000 (remapped to flash at 0x08000000).
+     * For bootloader applications, the linker script must place the vector table
+     * at the application start address (APP_START_ADDRESS), and the bootloader
+     * must jump directly to that address.
+     */
 }
 
 /**

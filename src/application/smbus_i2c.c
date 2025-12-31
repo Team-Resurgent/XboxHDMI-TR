@@ -1,6 +1,6 @@
 #include "smbus_i2c.h"
 #include "stm32.h"
-#include "debug.h"
+#include "../shared/debug.h"
 #include <string.h>
 
 #define I2C_SLAVE_ADDR 0x69

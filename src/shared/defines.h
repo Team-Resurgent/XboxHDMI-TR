@@ -5,8 +5,11 @@
 // ============================================================================
 
 // Bootloader magic flag address (must be in RAM, survives reset)
+// Place at 0x20001F00 (256 bytes before end of 8KB RAM) to avoid conflict with:
+// - Application's .data section (starts at 0x20000000)
+// - Application's stack (grows down from 0x20002000)
 #define BOOTLOADER_MAGIC_VALUE      0xDEADBEEF
-#define BOOTLOADER_FLAG_ADDRESS    ((volatile uint32_t*)0x20000000)
+#define BOOTLOADER_FLAG_ADDRESS    ((volatile uint32_t*)0x20001F00)
 
 // ============================================================================
 // MEMORY LAYOUT (16KB bootloader, 48KB application)

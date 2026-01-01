@@ -14,25 +14,29 @@ static void flash_erase_page(uint32_t address);
 static HAL_StatusTypeDef flash_write(uint32_t address, uint8_t *data, uint32_t len);
 static uint32_t calculate_checksum(uint32_t start, uint32_t length);
 
-typedef void (*app_entry_t)(void);
-
 extern void SystemClock_Config(void);
 
 int main(void) 
 {    
-    // if (*BOOTLOADER_FLAG_ADDRESS != BOOTLOADER_MAGIC_VALUE) {
-    //     *BOOTLOADER_FLAG_ADDRESS = 0; 
+    // Check bootloader flag first (before any HAL init)
+    // if (*BOOTLOADER_FLAG_ADDRESS == BOOTLOADER_MAGIC_VALUE) {
+    //     *BOOTLOADER_FLAG_ADDRESS = 0;  // Clear flag
     //     enter_bootloader_mode();
-    // } else if (check_application_valid()) {
+    // } 
+    // // Check if application is valid and jump to it immediately
+    // else if (check_application_valid()) {
+
     //     jump_to_application();
     // } 
+    // // Otherwise enter bootloader mode
+    // else {
+    //     // Initialize HAL for bootloader mode
 
-    // if (check_application_valid()) {
-    //     jump_to_application();
-    // } 
-
+    //     enter_bootloader_mode();
+    // }
+    
     jump_to_application();
-    enter_bootloader_mode();
+    while(1);
 }
 
 static uint32_t check_application_valid(void) 
@@ -58,34 +62,33 @@ static uint32_t check_application_valid(void)
     return 1;
 }
 
-typedef void (*pFunction)(void); /*!< Function pointer definition */
-
-/* Private variables ---------------------------------------------------------*/
-/** Private variable for tracking flashing progress */
-static uint32_t flash_ptr = 0x08004000;
-
-
 static void jump_to_application(void) 
 {
-    void (*app_reset_handler)(void) = (void*)(*((volatile uint32_t*) (0x08040000 + 4U)));
+    // Get application stack pointer from vector table
+    // Use volatile to ensure we read from flash, not cache
+    volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
+    uint32_t app_stack = app_vector_table[0];
+    uint32_t pc = app_vector_table[1];
 
-    HAL_RCC_DeInit();
-    HAL_DeInit();
+    asm volatile (
+        "mov sp,%0 ; blx %1"
+        :: "r" (app_stack), "r" (pc));
 
-    __set_MSP(*(volatile uint32_t*) 0x08040000);
-
-    SysTick->CTRL = 0;
-    SysTick->LOAD = 0;
-    SysTick->VAL  = 0;
-
-    app_reset_handler(); 
+    while(1) {
+        // // Flash both LEDs rapidly - slow enough to see
+        // set_led_1(true);
+        // set_led_2(true);
+        // HAL_Delay(200);  // 200ms on
+        // set_led_1(false);
+        // set_led_2(false);
+        // HAL_Delay(200);  // 200ms off
+    }
 }
 
 static void enter_bootloader_mode(void) 
 {
     HAL_Init();
     SystemClock_Config();
-
     init_led();
     debug_init();
     debug_log("Bootloader mode entered\r\n");

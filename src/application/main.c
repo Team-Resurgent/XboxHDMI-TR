@@ -29,6 +29,8 @@ void init_adv_audio();
 void adv_handle_interrupts();
 void adv_disable_video();
 void adv_enable_video();
+void adv_power_down_tmds();
+void adv_power_up_tmds();
 
 void bios_loop();
 void stand_alone_loop();
@@ -83,10 +85,10 @@ inline void init_adv() {
 
     // [7:6] HPD Control (forced to high)
     // [5] Fixed 0
-    // [4] TMDS Clock soft turn on (disabled)
+    // [4] TMDS Clock soft turn on
     // [3:1] Fixed 000
     // [0] AV gating off
-    adv7511_write_register(0xD6, 0b11000000);
+    adv7511_write_register(0xD6, 0b11010000);
 
     // Power up the encoder and set fixed registers
     adv7511_power_up(&encoder);
@@ -172,6 +174,22 @@ inline void adv_enable_video() {
     adv7511_update_register(0xD6, 0b00000001, 0b00000000);
 }
 
+inline void adv_power_down_tmds() {
+    // [5] Channel 0 power down
+    // [4] Channel 1 power down
+    // [3] Channel 2 power down
+    // [2] Clock Driver power down
+    adv7511_update_register(0xA1, 0b00111100, 0b00111100);
+}
+
+inline void adv_power_up_tmds() {
+    // [5] Channel 0 power up
+    // [4] Channel 1 power up
+    // [3] Channel 2 power up
+    // [2] Clock Driver power up
+    adv7511_update_register(0xA1, 0b00111100, 0b00000000);
+}
+
 inline void bios_loop() {
     if (video_mode_updated()) {
         const SMBusSettings * const vid_settings = getSMBusSettings();
@@ -181,7 +199,9 @@ inline void bios_loop() {
             init_adv_encoder_specific();
         }
 
+        adv_power_down_tmds();
         set_video_mode_bios(vid_settings->mode, vid_settings->avinfo, vid_settings->region);
+        adv_power_up_tmds();
         ack_video_mode_update();
     }
 }
@@ -239,13 +259,14 @@ void adv_handle_interrupts() {
 }
 
 void update_avi_infoframe(const bool widescreen) {
-    // Start AVI Infoframe Update
+    // [6] Start AVI Infoframe Update
     adv7511_update_register(0x4A, 0b01000000, 0b01000000);
-    // Infoframe output format to YCbCr4:4:4
+    // [6:5] Infoframe output format to YCbCr4:4:4
     adv7511_update_register(0x55, 0b01100000, 0b01000000);
-    // Set aspect ratio
+    // [5:4] Set aspect ratio
+    // [3:0] Active format aspect ratio, same as aspect ratio
     adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);
-    // END AVI Infoframe Update
+    // [6] End AVI Infoframe Update
     adv7511_update_register(0x4A, 0b01000000, 0b00000000);
 }
 

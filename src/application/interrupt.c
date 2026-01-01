@@ -1,15 +1,14 @@
-// Copyright 2021, Ryan Wendland, XboxHDMI by Ryzee119
-// SPDX-License-Identifier: MIT
-
 #include "stm32f0xx_hal.h"
-#include "main.h"
-#include "adv7511.h"
-#include "interrupt.h"
+#include "..\shared\debug.h"
 
-extern adv7511 encoder;
-
-void ADV_IRQ_HANDLER(void)
+void SysTick_Handler(void)
 {
-    encoder.interrupt = 1;
-    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_7);
+    HAL_IncTick();
+    HAL_SYSTICK_IRQHandler();
+}
+
+void HardFault_Handler(void)
+{
+    debug_log("HardFault occured!\n");
+    while (1);
 }

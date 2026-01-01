@@ -18,6 +18,12 @@ extern void SystemClock_Config(void);
 
 int main(void) 
 {    
+    HAL_Init();    
+    SystemClock_Config();
+
+    debug_init();
+    debug_log("Entering Bootloader...\r\n");
+
     // Check bootloader flag first (before any HAL init)
     // if (*BOOTLOADER_FLAG_ADDRESS == BOOTLOADER_MAGIC_VALUE) {
     //     *BOOTLOADER_FLAG_ADDRESS = 0;  // Clear flag
@@ -64,25 +70,27 @@ static uint32_t check_application_valid(void)
 
 static void jump_to_application(void) 
 {
-    // Get application stack pointer from vector table
-    // Use volatile to ensure we read from flash, not cache
+    debug_log("Launching Application...\r\n");
+
     volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
-    uint32_t app_stack = app_vector_table[0];
-    uint32_t pc = app_vector_table[1];
+    uint32_t stack_pointer = app_vector_table[0];
+    uint32_t app_entry = app_vector_table[1];
+
+    __disable_irq();
+
+    HAL_RCC_DeInit();
+    HAL_DeInit();
+
+    SysTick->CTRL = 0;
+    SysTick->LOAD = 0;
+    SysTick->VAL = 0;
 
     asm volatile (
         "mov sp,%0 ; blx %1"
-        :: "r" (app_stack), "r" (pc));
+        :: "r" (stack_pointer), "r" (app_entry)
+    );
 
-    while(1) {
-        // // Flash both LEDs rapidly - slow enough to see
-        // set_led_1(true);
-        // set_led_2(true);
-        // HAL_Delay(200);  // 200ms on
-        // set_led_1(false);
-        // set_led_2(false);
-        // HAL_Delay(200);  // 200ms off
-    }
+    while (1);
 }
 
 static void enter_bootloader_mode(void) 

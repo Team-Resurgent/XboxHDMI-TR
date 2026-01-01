@@ -42,45 +42,20 @@ uint8_t get_vic_from_video_mode(const VideoMode * const vm, const bool widescree
 void SystemClock_Config(void);
 static void init_gpio(void);
 
-int main(void) {
-    // STM
-    HAL_Init();
+int main(void) 
+{
+    __enable_irq();
+
+    HAL_Init();    
     SystemClock_Config();
 
     debug_init();
+    debug_log("Entering Application...\r\n");
+
     init_led();
-    init_gpio();
-
-    debug_log("hello1\r\n");
-    HAL_Delay(500);
-    debug_log("hello2\r\n");
-
-        
+    init_gpio();    
     init_adv();
     smbus_i2c_init();
-
-    // Immediately initialize LEDs to show we've reached main()
-    // Do this before anything else that might fail
-
-    
-    // Flash both LEDs 10 times SLOWLY to indicate application started
-    // Make it very visible
-    for (int i = 0; i < 10; i++) {
-        set_led_1(true);
-        set_led_2(true);
-        HAL_Delay(300);  // 300ms on - easy to see
-        set_led_1(false);
-        set_led_2(false);
-        HAL_Delay(300);  // 300ms off
-    }
-    
-
-    
-    // Flash LED2 once to indicate initialization complete
-    set_led_2(true);
-    HAL_Delay(500);
-    set_led_2(false);
-    HAL_Delay(500);
 
     while (true)
     {

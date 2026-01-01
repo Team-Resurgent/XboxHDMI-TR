@@ -81,7 +81,11 @@ inline void init_adv() {
     // Initialise the encoder object
     adv7511_struct_init(&encoder);
 
-    // Setup HPD Control (forced to high)
+    // [7:6] HPD Control (forced to high)
+    // [5] Fixed 0
+    // [4] TMDS Clock soft turn on (disabled)
+    // [3:1] Fixed 000
+    // [0] AV gating off
     adv7511_write_register(0xD6, 0b11000000);
 
     // Power up the encoder and set fixed registers
@@ -104,7 +108,7 @@ inline void init_adv() {
     // Setup xbox encoder specific stuff (Xcalibur uses different settings)
     init_adv_encoder_specific();
 
-    // Enable DE generation. This is derived from HSYNC,VSYNC for video active framing
+    // [0] Enable DE generation. This is derived from HSYNC,VSYNC for video active framing
     adv7511_update_register(0x17, 0b00000001, 0b00000001);
 
     // Set Output to HDMI Mode (Instead of DVI Mode)
@@ -116,7 +120,7 @@ inline void init_adv() {
     // [0] Must be set to default 0
     adv7511_write_register(0xAF, 0b00000110);
 
-    // Enable General Control Packet CHECK
+    // [7] Enable General Control Packet CHECK
     adv7511_update_register(0x40, 0b10000000, 0b10000000);
 
     init_adv_audio();
@@ -127,18 +131,18 @@ inline void init_adv() {
 
 void init_adv_encoder_specific() {
     if (xb_encoder == ENCODER_XCALIBUR) {
-        // Normal Bus Order, DDR Alignment D[35:18] (left aligned)
-        adv7511_write_register(0x48, 0b00100000);
+        // [6] Normal Bus Order, [5] DDR Alignment D[35:18] (left aligned)
+        adv7511_update_register(0x48, 0b01100000, 0b00100000);
         // [7] Disable DDR Negative Edge CLK Delay, [6:4] with 0ps delay
-        // [3:2] No sync pulse, [1] Data enable, then sync
+        // [3:2] No sync pulse, [1] Data enable, then sync, [0] Fixed
         adv7511_write_register(0xD0, 0b00111110);
         // [7:5] -0.4ns clock delay
         adv7511_update_register(0xBA, 0b11100000, 0b01000000);
     } else {
-        // LSB .... MSB Reverse Bus Order, DDR Alignment D[17:0] (right aligned)
-        adv7511_write_register(0x48, 0b01000000);
+        // [6] LSB .... MSB Reverse Bus Order, [5] DDR Alignment D[17:0] (right aligned)
+        adv7511_update_register(0x48, 0b01100000, 0b01000000);
         // [7] Enable DDR Negative Edge CLK Delay, [6:4] with 0ps delay
-        // [3:2] No sync pulse, [1] Data enable, then sync
+        // [3:2] No sync pulse, [1] Data enable, then sync, [0] Fixed
         adv7511_write_register(0xD0, 0b10111110);
         // [7:5] No clock delay
         adv7511_update_register(0xBA, 0b11100000, 0b01100000);
@@ -146,25 +150,25 @@ void init_adv_encoder_specific() {
 }
 
 inline void init_adv_audio() {
-    // Set 48kHz Audio clock CHECK (N Value)
+    // [19:0] Set 48kHz Audio clock CHECK (N Value)
     adv7511_write_register(0x01, 0x00);
     adv7511_write_register(0x02, 0x18);
     adv7511_write_register(0x03, 0x00);
 
-    // Set SPDIF audio source
+    // [6:4] Set SPDIF audio source
     adv7511_update_register(0x0A, 0b01110000, 0b00010000);
 
-    // SPDIF enable
+    // [7] SPDIF enable
     adv7511_update_register(0x0B, 0b10000000, 0b10000000);
 }
 
 inline void adv_disable_video() {
-    // Gate ouput
+    // [0] Gate ouput
     adv7511_update_register(0xD6, 0b00000001, 0b00000001);
 }
 
 inline void adv_enable_video() {
-    // Enable ouput
+    // [1] Enable ouput
     adv7511_update_register(0xD6, 0b00000001, 0b00000000);
 }
 

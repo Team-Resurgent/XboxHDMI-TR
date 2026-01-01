@@ -27,10 +27,6 @@ void init_adv();
 void init_adv_encoder_specific();
 void init_adv_audio();
 void adv_handle_interrupts();
-void adv_disable_video();
-void adv_enable_video();
-void adv_power_down_tmds();
-void adv_power_up_tmds();
 
 void bios_loop();
 void stand_alone_loop();
@@ -128,7 +124,7 @@ inline void init_adv() {
     init_adv_audio();
 
     // Set up the color space correction for RGB signals, disabled by default
-    apply_csc((uint8_t *)CscRgbToYuv601);
+    adv7511_apply_csc((uint8_t *)CscRgbToYuv601);
 }
 
 void init_adv_encoder_specific() {
@@ -164,32 +160,6 @@ inline void init_adv_audio() {
     adv7511_update_register(0x0B, 0b10000000, 0b10000000);
 }
 
-inline void adv_disable_video() {
-    // [0] Gate ouput
-    adv7511_update_register(0xD6, 0b00000001, 0b00000001);
-}
-
-inline void adv_enable_video() {
-    // [1] Enable ouput
-    adv7511_update_register(0xD6, 0b00000001, 0b00000000);
-}
-
-inline void adv_power_down_tmds() {
-    // [5] Channel 0 power down
-    // [4] Channel 1 power down
-    // [3] Channel 2 power down
-    // [2] Clock Driver power down
-    adv7511_update_register(0xA1, 0b00111100, 0b00111100);
-}
-
-inline void adv_power_up_tmds() {
-    // [5] Channel 0 power up
-    // [4] Channel 1 power up
-    // [3] Channel 2 power up
-    // [2] Clock Driver power up
-    adv7511_update_register(0xA1, 0b00111100, 0b00000000);
-}
-
 inline void bios_loop() {
     static uint32_t current_mode = 0;
     static uint32_t current_avinfo = 0;
@@ -207,9 +177,9 @@ inline void bios_loop() {
 
         // Only change the video mode if we actually got a new video mode
         if ((current_mode != mode) || (current_avinfo != avinfo)) {
-            adv_power_down_tmds();
+            adv7511_power_down_tmds();
             set_video_mode_bios(mode, avinfo, vid_settings->region);
-            adv_power_up_tmds();
+            adv7511_power_up_tmds();
 
             current_avinfo = avinfo;
             current_mode = mode;

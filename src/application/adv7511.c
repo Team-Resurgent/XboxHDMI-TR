@@ -40,7 +40,7 @@ void adv7511_power_up(adv7511 *encoder) {
     // Power up the encoder
     adv7511_write_register(0x41, 0x10); // Power up
     HAL_Delay(20);
-    
+
     // Reset
     adv7511_write_register(0x41, 0x00);
     HAL_Delay(20);
@@ -48,10 +48,35 @@ void adv7511_power_up(adv7511 *encoder) {
     HAL_Delay(20);
 }
 
-void apply_csc(const uint8_t * const coefficients) {
+void adv7511_apply_csc(const uint8_t * const coefficients) {
     // Write CSC coefficients to registers 0x18-0x2F
     for (uint8_t i = 0; i < 24; i++) {
         adv7511_write_register(0x18 + i, coefficients[i]);
     }
 }
 
+inline void adv7511_disable_video() {
+    // [0] Gate ouput
+    adv7511_update_register(0xD6, 0b00000001, 0b00000001);
+}
+
+inline void adv7511_enable_video() {
+    // [1] Enable ouput
+    adv7511_update_register(0xD6, 0b00000001, 0b00000000);
+}
+
+inline void adv7511_power_down_tmds() {
+    // [5] Channel 0 power down
+    // [4] Channel 1 power down
+    // [3] Channel 2 power down
+    // [2] Clock Driver power down
+    adv7511_update_register(0xA1, 0b00111100, 0b00111100);
+}
+
+inline void adv7511_power_up_tmds() {
+    // [5] Channel 0 power up
+    // [4] Channel 1 power up
+    // [3] Channel 2 power up
+    // [2] Clock Driver power up
+    adv7511_update_register(0xA1, 0b00111100, 0b00000000);
+}

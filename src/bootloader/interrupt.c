@@ -2,7 +2,7 @@
 #include "../shared/debug.h"
 #include "../shared/defines.h"
 
-// Get application's SysTick handler from application's vector table
+// Get application's interrupt handlers from application's vector table
 // Vector table structure:
 // [0] = Initial Stack Pointer
 // [1] = Reset Handler
@@ -10,6 +10,8 @@
 // [3] = HardFault Handler
 // ...
 // [15] = SysTick Handler (exception #15)
+// [21] = EXTI0_1_IRQHandler (IRQ #5)
+// [40] = I2C2_IRQHandler (IRQ #24)
 
 void SysTick_Handler(void)
 {
@@ -36,5 +38,27 @@ void HardFault_Handler(void)
     } else {
         debug_log("HardFault occured!\n");
         while (1);
+    }
+}
+
+void EXTI0_1_IRQHandler(void)
+{
+    volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
+    uint32_t app_exti_addr = app_vector_table[21];
+    
+    if (app_exti_addr != 0xFFFFFFFF && app_exti_addr != 0x00000000) {
+        void (*app_exti_handler)(void) = (void (*)(void))app_exti_addr;
+        app_exti_handler();
+    }
+}
+
+void I2C2_IRQHandler(void)
+{
+    volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
+    uint32_t app_i2c2_addr = app_vector_table[40];
+    
+    if (app_i2c2_addr != 0xFFFFFFFF && app_i2c2_addr != 0x00000000) {
+        void (*app_i2c2_handler)(void) = (void (*)(void))app_i2c2_addr;
+        app_i2c2_handler();
     }
 }

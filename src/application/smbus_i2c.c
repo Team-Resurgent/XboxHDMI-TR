@@ -338,6 +338,16 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                     }
                     break;
                 }
+                case I2C_HDMI_COMMAND_WRITE_REBOOT:
+                {
+                    if (dataByte == 0x01)
+                    {
+                        debug_log("SMBus: Reboot command received\r\n");
+                        HAL_Delay(10); 
+                        NVIC_SystemReset();
+                    }
+                    break;
+                }
             }
         }
     }

@@ -3,7 +3,5 @@
 
 #pragma once
 
-#include "stm32f0xx_hal.h"
-#include "main.h"
-
-void ADV_IRQ_HANDLER(void);
+#include "../shared/interrupt.h"
+#include "../shared/error_handler.h"

@@ -1,4 +1,4 @@
-#include "bootloader.h"
+#include "main.h"
 #include "stm32f0xx_hal.h"
 #include "stm32f0xx.h"
 #include "../shared/defines.h"
@@ -14,23 +14,28 @@ static void flash_erase_page(uint32_t address);
 static HAL_StatusTypeDef flash_write(uint32_t address, uint8_t *data, uint32_t len);
 static uint32_t calculate_checksum(uint32_t start, uint32_t length);
 
-typedef void (*app_func_t)(void);
+typedef void (*app_entry_t)(void);
 
 extern void SystemClock_Config(void);
 
-int main(void) {
+int main(void) 
+{    
+    // if (*BOOTLOADER_FLAG_ADDRESS != BOOTLOADER_MAGIC_VALUE) {
+    //     *BOOTLOADER_FLAG_ADDRESS = 0; 
+    //     enter_bootloader_mode();
+    // } else if (check_application_valid()) {
+    //     jump_to_application();
+    // } 
 
-    if (*BOOTLOADER_FLAG_ADDRESS == BOOTLOADER_MAGIC_VALUE) {
-        *BOOTLOADER_FLAG_ADDRESS = 0; 
-        enter_bootloader_mode();
-    } else if (check_application_valid()) {
-        jump_to_application();
-    } 
+    // if (check_application_valid()) {
+    //     jump_to_application();
+    // } 
     
     enter_bootloader_mode();
 }
 
-static uint32_t check_application_valid(void) {
+static uint32_t check_application_valid(void) 
+{
     uint32_t *app_stack = (uint32_t *)APP_START_ADDRESS;
     uint32_t *app_reset = (uint32_t *)(APP_START_ADDRESS + 4);
     
@@ -52,18 +57,44 @@ static uint32_t check_application_valid(void) {
     return 1;
 }
 
-static void jump_to_application(void) {
-    uint32_t *app_stack = (uint32_t *)APP_START_ADDRESS;
-    uint32_t *app_reset = (uint32_t *)(APP_START_ADDRESS + 4);
-    
-    // Disable interrupts
+static void jump_to_application(void) 
+{
+    // Disable interrupts globally
     __disable_irq();
-    
+
+    // Disable all peripheral interrupts (following article approach)
+    HAL_NVIC_DisableIRQ(SysTick_IRQn);
+    HAL_NVIC_DisableIRQ(USART2_IRQn);
+    HAL_NVIC_DisableIRQ(WWDG_IRQn);
+    HAL_NVIC_DisableIRQ(RTC_IRQn);
+    HAL_NVIC_DisableIRQ(FLASH_IRQn);
+    HAL_NVIC_DisableIRQ(RCC_IRQn);
+    HAL_NVIC_DisableIRQ(EXTI0_1_IRQn);
+    HAL_NVIC_DisableIRQ(EXTI2_3_IRQn);
+    HAL_NVIC_DisableIRQ(EXTI4_15_IRQn);
+    HAL_NVIC_DisableIRQ(DMA1_Channel1_IRQn);
+    HAL_NVIC_DisableIRQ(DMA1_Channel2_3_IRQn);
+    HAL_NVIC_DisableIRQ(DMA1_Channel4_5_IRQn);
+    HAL_NVIC_DisableIRQ(ADC1_IRQn);
+    HAL_NVIC_DisableIRQ(TIM1_BRK_UP_TRG_COM_IRQn);
+    HAL_NVIC_DisableIRQ(TIM1_CC_IRQn);
+    HAL_NVIC_DisableIRQ(TIM3_IRQn);
+    HAL_NVIC_DisableIRQ(TIM6_IRQn);
+    HAL_NVIC_DisableIRQ(TIM14_IRQn);
+    HAL_NVIC_DisableIRQ(TIM15_IRQn);
+    HAL_NVIC_DisableIRQ(TIM16_IRQn);
+    HAL_NVIC_DisableIRQ(TIM17_IRQn);
+    HAL_NVIC_DisableIRQ(I2C1_IRQn);
+    HAL_NVIC_DisableIRQ(I2C2_IRQn);
+    HAL_NVIC_DisableIRQ(SPI1_IRQn);
+    HAL_NVIC_DisableIRQ(SPI2_IRQn);
+    HAL_NVIC_DisableIRQ(USART1_IRQn);
+
     // Reset SysTick
     SysTick->CTRL = 0;
     SysTick->LOAD = 0;
     SysTick->VAL = 0;
-    
+
     // STM32F0 (Cortex-M0) does not have VTOR register.
     // We need to copy the application's vector table to SRAM and remap SRAM to 0x00000000.
     
@@ -74,7 +105,7 @@ static void jump_to_application(void) {
     // After remapping, SRAM at 0x20000000 will be accessible at 0x00000000
     // So we copy the vector table to 0x20000000, and it will appear at 0x00000000 after remap
     const uint32_t VECTOR_TABLE_SIZE = 48;  // Number of vectors in Cortex-M0 vector table (48 * 4 = 192 bytes)
-    const uint32_t SRAM_VT_ADDR = 0x20000000;   // Start of SRAM (SRAM_BASE is already defined in CMSIS)
+    const uint32_t SRAM_VT_ADDR = 0x20000000;   // Start of SRAM
     
     uint32_t *app_vectors = (uint32_t *)APP_START_ADDRESS;
     uint32_t *sram_vectors = (uint32_t *)SRAM_VT_ADDR;
@@ -94,39 +125,33 @@ static void jump_to_application(void) {
     __DSB();
     __ISB();
     
-    // Set stack pointer
-    __set_MSP(app_stack[0]);
+    // Set stack pointer from application's vector table
+    uint32_t app_stack = app_vectors[0];
+    __set_MSP(app_stack);
     
     // Jump to application reset handler
-    app_func_t app_main = (app_func_t)app_reset[0];
-    app_main();
+    uint32_t app_reset = app_vectors[1];
+    app_entry_t app_entry = (app_entry_t)app_reset;
+    app_entry();
 }
 
-static void enter_bootloader_mode(void) {
-
+static void enter_bootloader_mode(void) 
+{
     HAL_Init();
     SystemClock_Config();
 
-    // Initialize hardware only when entering bootloader mode
     init_led();
     debug_init();
     debug_log("Bootloader mode entered\r\n");
-    
-    // Blink LED to indicate bootloader mode
-    set_led_1(true);
-    HAL_Delay(100);
-    set_led_1(false);
 
-    // Initialize I2C for firmware updates
-    // TODO: Implement I2C bootloader protocol
     static uint32_t last_blink = 0;
     static bool led_state = false;
     
     while(1) {
-        // Blink LED to show we're in bootloader (2 times per second = 250ms toggle)
         if ((HAL_GetTick() - last_blink) > 250) {
             led_state = !led_state;
-            set_led_2(led_state); // Toggle LED
+            set_led_1(led_state); 
+            set_led_2(!led_state); 
             last_blink = HAL_GetTick();
         }
         HAL_Delay(100);

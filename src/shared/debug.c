@@ -1,4 +1,5 @@
 #include "debug.h"
+#include "stm32.h"
 
 #include <stdio.h>
 #include <string.h>

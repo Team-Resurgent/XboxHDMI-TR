@@ -191,6 +191,9 @@ inline void adv_power_up_tmds() {
 }
 
 inline void bios_loop() {
+    static uint32_t current_mode = 0;
+    static uint32_t current_avinfo = 0;
+
     if (video_mode_updated()) {
         const SMBusSettings * const vid_settings = getSMBusSettings();
         // Detect the encoder, if it changed reinit encoder specific values
@@ -199,9 +202,19 @@ inline void bios_loop() {
             init_adv_encoder_specific();
         }
 
-        adv_power_down_tmds();
-        set_video_mode_bios(vid_settings->mode, vid_settings->avinfo, vid_settings->region);
-        adv_power_up_tmds();
+        const uint32_t mode = vid_settings->mode;
+        const uint32_t avinfo = vid_settings->avinfo;
+
+        // Only change the video mode if we actually got a new video mode
+        if ((current_mode != mode) || (current_avinfo != avinfo)) {
+            adv_power_down_tmds();
+            set_video_mode_bios(mode, avinfo, vid_settings->region);
+            adv_power_up_tmds();
+
+            current_avinfo = avinfo;
+            current_mode = mode;
+        }
+
         ack_video_mode_update();
     }
 }

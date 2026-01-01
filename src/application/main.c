@@ -88,13 +88,15 @@ inline void init_adv() {
     adv7511_power_up(&encoder);
     HAL_Delay(50);
 
-    // Set video input mode to RGB/YCbCr 4:4:4, 12bit databus DDR. Audio to 48kHz
+    // [3:0] Set video input mode to RGB/YCbCr 4:4:4, 12bit databus DDR
+    // [7:4] Audio to 48kHz
     adv7511_write_register(0x15, 0b00100101);
 
-    // Set Output Format to 4:4:4
-    // 8 bit video
-    // Set video style to style 1 (Y[3:0] Cb[7:0] first edge, Cr[7:0] Y[7:4] second edge)
-    // Set DDR Input Rising Edge
+    // [7] Output Format 4:4:4
+    // [5:4] 8 bit video
+    // [3:2] video style 1 (Y[3:0] Cb[7:0] first edge, Cr[7:0] Y[7:4] second edge)
+    // [1] Set DDR Input Rising Edge
+    // [0] YCbCr
     adv7511_write_register(0x16, 0b00111011);
 
     update_avi_infoframe(false);
@@ -106,7 +108,13 @@ inline void init_adv() {
     adv7511_update_register(0x17, 0b00000001, 0b00000001);
 
     // Set Output to HDMI Mode (Instead of DVI Mode)
-    adv7511_update_register(0xAF, 0b00000010, 0b00000010);
+    // [7] HDCP Disabled
+    // [6:5] Must be set to default value 00
+    // [4] Frame encryption
+    // [3:2] Must be set to default value 01
+    // [1] HDMI/DVI
+    // [0] Must be set to default 0
+    adv7511_write_register(0xAF, 0b00000110);
 
     // Enable General Control Packet CHECK
     adv7511_update_register(0x40, 0b10000000, 0b10000000);
@@ -121,19 +129,19 @@ void init_adv_encoder_specific() {
     if (xb_encoder == ENCODER_XCALIBUR) {
         // Normal Bus Order, DDR Alignment D[35:18] (left aligned)
         adv7511_write_register(0x48, 0b00100000);
-        // Disable DDR Negative Edge CLK Delay, with 0ps delay
-        // No sync pulse. Data enable, then sync
+        // [7] Disable DDR Negative Edge CLK Delay, [6:4] with 0ps delay
+        // [3:2] No sync pulse, [1] Data enable, then sync
         adv7511_write_register(0xD0, 0b00111110);
-        // -0.4ns clock delay
-        adv7511_write_register(0xBA, 0b01000000);
+        // [7:5] -0.4ns clock delay
+        adv7511_update_register(0xBA, 0b11100000, 0b01000000);
     } else {
         // LSB .... MSB Reverse Bus Order, DDR Alignment D[17:0] (right aligned)
         adv7511_write_register(0x48, 0b01000000);
-        // Enable DDR Negative Edge CLK Delay, with 0ps delay
-        // No sync pulse. Data enable, then sync
+        // [7] Enable DDR Negative Edge CLK Delay, [6:4] with 0ps delay
+        // [3:2] No sync pulse, [1] Data enable, then sync
         adv7511_write_register(0xD0, 0b10111110);
-        // No clock delay
-        adv7511_write_register(0xBA, 0b01100000);
+        // [7:5] No clock delay
+        adv7511_update_register(0xBA, 0b11100000, 0b01100000);
     }
 }
 
@@ -428,4 +436,3 @@ static void init_gpio(void) {
     HAL_NVIC_SetPriority(EXTI0_1_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(EXTI0_1_IRQn);
 }
-

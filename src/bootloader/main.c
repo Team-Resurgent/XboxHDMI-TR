@@ -7,7 +7,9 @@
 #include "../shared/debug.h"
 #include "../shared/error_handler.h"
 
-static uint32_t check_application_valid(void);
+#include <stdbool.h>
+
+static bool can_launch_application(void);
 static void jump_to_application(void);
 static void enter_bootloader_mode(void);
 static void flash_erase_page(uint32_t address);
@@ -15,7 +17,6 @@ static HAL_StatusTypeDef flash_write(uint32_t address, uint8_t *data, uint32_t l
 static uint32_t calculate_checksum(uint32_t start, uint32_t length);
 
 extern void SystemClock_Config(void);
-
 volatile uint8_t bootloader_running = 0;
 
 int main(void) 
@@ -28,57 +29,43 @@ int main(void)
     debug_init();
     debug_log("Entering Bootloader...\r\n");
 
-    init_led();
-
     uint32_t flag_value = *BOOTLOADER_FLAG_ADDRESS;
-    if (flag_value == BOOTLOADER_MAGIC_VALUE) {
-        *BOOTLOADER_FLAG_ADDRESS = 0;
-        enter_bootloader_mode();
-    } else {
-        debug_log("Bootloader flag: NOT SET (0x%08lX)\r\n", flag_value);
+    if (flag_value != BOOTLOADER_MAGIC_VALUE && can_launch_application())
+    {
+        jump_to_application();
     }
-    
-
-    // Check bootloader flag first (before any HAL init)
-    // if (*BOOTLOADER_FLAG_ADDRESS == BOOTLOADER_MAGIC_VALUE) {
-    //     *BOOTLOADER_FLAG_ADDRESS = 0;  // Clear flag
-    //     enter_bootloader_mode();
-    // } 
-    // // Check if application is valid and jump to it immediately
-    // else if (check_application_valid()) {
-
-    //     jump_to_application();
-    // } 
-    // // Otherwise enter bootloader mode
-    // else {
-    //     // Initialize HAL for bootloader mode
-
-    //     enter_bootloader_mode();
-    // }
-    
-    jump_to_application();
-    while(1);
+    *BOOTLOADER_FLAG_ADDRESS = 0;
+    enter_bootloader_mode();
 }
 
-static void jump_to_application() 
+static bool can_launch_application(void)
+{
+    volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
+    uint32_t stack_pointer = app_vector_table[0];
+    uint32_t app_entry = app_vector_table[1];
+
+    if (stack_pointer < RAM_START_ADDRESS || stack_pointer > (RAM_START_ADDRESS + RAM_TOTAL_SIZE)) {
+        return false;
+    }
+
+    if (app_entry < FLASH_START_ADDRESS || app_entry > (FLASH_START_ADDRESS + FLASH_TOTAL_SIZE)) {
+        return false;
+    }
+    
+    if (stack_pointer == 0xFFFFFFFF && app_entry == 0xFFFFFFFF) {
+        return false;
+    }
+
+    return true;
+}
+
+static void jump_to_application(void) 
 {
     debug_log("Launching Application...\r\n");
 
     volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
     uint32_t stack_pointer = app_vector_table[0];
     uint32_t app_entry = app_vector_table[1];
-
-    if (stack_pointer < RAM_START_ADDRESS || stack_pointer > (RAM_START_ADDRESS + RAM_TOTAL_SIZE)) {
-        return;
-    }
-
-    if (app_entry < FLASH_START_ADDRESS || app_entry > (FLASH_START_ADDRESS + FLASH_TOTAL_SIZE)) {
-        return;
-    }
-    
-    if (stack_pointer == 0xFFFFFFFF && app_entry == 0xFFFFFFFF) {
-        return;
-    }
 
     __disable_irq();
 
@@ -99,8 +86,10 @@ static void jump_to_application()
     while (1);
 }
 
-static void enter_bootloader_mode() 
+static void enter_bootloader_mode(void) 
 {
+    init_led();
+
     debug_log("Waiting for update...\r\n");
 
     static uint32_t last_blink = 0;

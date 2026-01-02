@@ -14,6 +14,7 @@
 // [40] = I2C2_IRQHandler (IRQ #24)
 
 extern uint8_t bootloader_running;
+extern I2C_HandleTypeDef hi2c2;
 
 void SysTick_Handler(void)
 {
@@ -66,27 +67,21 @@ void EXTI0_1_IRQHandler(void)
 
 void I2C2_IRQHandler(void)
 {
-    // // Check if bootloader is using I2C2
-    // if (bootloader_i2c2_active && bootloader_hi2c2 != NULL) {
-    //     // Bootloader is using I2C2 - handle it here
-    //     I2C_HandleTypeDef *hi2c = bootloader_hi2c2;
-        
-    //     // Check for error conditions first
-    //     if (hi2c->Instance->ISR & (I2C_FLAG_BERR | I2C_FLAG_ARLO | I2C_FLAG_OVR | 
-    //                                 I2C_FLAG_TIMEOUT | I2C_FLAG_ALERT | I2C_FLAG_PECERR)) {
-    //         HAL_I2C_ER_IRQHandler(hi2c);
-    //     } else {
-    //         HAL_I2C_EV_IRQHandler(hi2c);
-    //     }
-    //     return;
-    // }
-    
     // Otherwise, forward to application
     volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
     uint32_t app_i2c2_addr = app_vector_table[40];
     
-    if (bootloader_running == 0 && app_i2c2_addr != 0xFFFFFFFF && app_i2c2_addr != 0x00000000) {
+    if (bootloader_running == 0 && bootloader_running == 0 && app_i2c2_addr != 0xFFFFFFFF && app_i2c2_addr != 0x00000000) {
         void (*app_i2c2_handler)(void) = (void (*)(void))app_i2c2_addr;
         app_i2c2_handler();
+    } else {
+        if (hi2c2.Instance->ISR & (I2C_FLAG_BERR | I2C_FLAG_ARLO | I2C_FLAG_OVR | I2C_FLAG_TIMEOUT | I2C_FLAG_ALERT | I2C_FLAG_PECERR))
+        {
+            HAL_I2C_ER_IRQHandler(&hi2c2);
+        }
+        else
+        {
+            HAL_I2C_EV_IRQHandler(&hi2c2);
+        }
     }
 }

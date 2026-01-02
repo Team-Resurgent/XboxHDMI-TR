@@ -1,6 +1,7 @@
 #include "main.h"
 #include "stm32f0xx_hal.h"
 #include "stm32f0xx.h"
+#include "smbus_i2c.h"
 #include "../shared/defines.h"
 #include "../shared/led.h"
 #include <string.h>
@@ -91,6 +92,8 @@ static void enter_bootloader_mode(void)
     init_led();
 
     debug_log("Waiting for update...\r\n");
+
+    smbus_i2c_init();
 
     static uint32_t last_blink = 0;
     static bool led_state = false;

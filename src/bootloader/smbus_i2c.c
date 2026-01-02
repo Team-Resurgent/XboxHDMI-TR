@@ -21,6 +21,44 @@
 #define I2C_HDMI_COMMAND_WRITE_APPLY 131
 #define I2C_HDMI_COMMAND_WRITE_BOOTLOADER 132
 
+// Firmware Update Read Commands
+#define I2C_FW_UPDATE_READ_STATUS 0x10
+#define I2C_FW_UPDATE_READ_PAGE_ADDR_LOW 0x11
+#define I2C_FW_UPDATE_READ_PAGE_ADDR_HIGH 0x12
+#define I2C_FW_UPDATE_READ_CRC_BYTE0 0x13
+#define I2C_FW_UPDATE_READ_CRC_BYTE1 0x14
+#define I2C_FW_UPDATE_READ_CRC_BYTE2 0x15
+#define I2C_FW_UPDATE_READ_CRC_BYTE3 0x16
+#define I2C_FW_UPDATE_READ_FIRMWARE 0x17  // Read firmware byte (auto-increment)
+#define I2C_FW_UPDATE_READ_ADDR_LOW 0x18   // Read current read address low byte
+#define I2C_FW_UPDATE_READ_ADDR_HIGH 0x19  // Read current read address high byte
+#define I2C_FW_UPDATE_READ_SIZE_BYTE0 0x1A  // Read firmware size byte 0 (LSB)
+#define I2C_FW_UPDATE_READ_SIZE_BYTE1 0x1B  // Read firmware size byte 1
+#define I2C_FW_UPDATE_READ_SIZE_BYTE2 0x1C  // Read firmware size byte 2
+#define I2C_FW_UPDATE_READ_SIZE_BYTE3 0x1D  // Read firmware size byte 3 (MSB)
+
+// Firmware Update Write Commands
+#define I2C_FW_UPDATE_WRITE_MODE 0x90  // 128 + 16
+#define I2C_FW_UPDATE_WRITE_PAGE_ADDR_LOW 0x91
+#define I2C_FW_UPDATE_WRITE_PAGE_ADDR_HIGH 0x92
+#define I2C_FW_UPDATE_WRITE_DATA 0x93
+#define I2C_FW_UPDATE_ERASE_PAGE 0x94
+#define I2C_FW_UPDATE_COMMIT_PAGE 0x95
+#define I2C_FW_UPDATE_VERIFY 0x96
+#define I2C_FW_UPDATE_RESET 0x97
+#define I2C_FW_UPDATE_SET_READ_ADDR_LOW 0x98   // Set firmware read address low byte
+#define I2C_FW_UPDATE_SET_READ_ADDR_HIGH 0x99  // Set firmware read address high byte
+#define I2C_FW_UPDATE_CALCULATE_SIZE 0x9A  // Calculate and cache firmware size
+
+// Flash configuration for STM32F030C8T6
+#define FLASH_BASE_ADDR 0x08000000
+#define FLASH_TOTAL_SIZE 65536  // 64KB total
+#define FLASH_PAGE_COUNT (FLASH_TOTAL_SIZE / FLASH_PAGE_SIZE)
+
+// Application start address (adjust if bootloader present)
+#define APP_START_ADDR FLASH_BASE_ADDR
+#define APP_END_ADDR (FLASH_BASE_ADDR + FLASH_TOTAL_SIZE - 1)
+
 // State flags (bit flags like reference)
 #define SMBUS_SMS_NONE           ((uint32_t)0x00000000)  /*!< Uninitialized stack */
 #define SMBUS_SMS_READY          ((uint32_t)0x00000001)  /*!< No operation ongoing */
@@ -45,6 +83,382 @@ static uint8_t responseByte = 0x42;  // default response
 
 static bool video_mode_update_pending = false;
 static bool bios_took_over_control = false;
+
+// Firmware update state
+static bool fw_update_mode = false;
+static uint16_t fw_page_addr = 0;  // Current page address (0-63 for 64KB)
+static uint16_t fw_byte_index = 0;  // Current byte index within page (0-1023)
+static uint8_t fw_page_buffer[FLASH_PAGE_SIZE];  // Buffer for one flash page
+static uint32_t fw_crc32 = 0;  // Calculated CRC32
+static uint8_t fw_crc_read_index = 0;  // For reading CRC32 byte-by-byte
+static uint32_t fw_read_addr = APP_START_ADDR;  // Current firmware read address
+static uint32_t fw_size = 0;  // Calculated firmware size in bytes
+static uint8_t fw_size_read_index = 0;  // For reading firmware size byte-by-byte
+
+// -------------------- CRC32 Calculation --------------------
+static uint32_t crc32_table[256];
+static bool crc32_table_initialized = false;
+
+static void init_crc32_table(void)
+{
+    uint32_t crc;
+    for (uint32_t i = 0; i < 256; i++)
+    {
+        crc = i;
+        for (uint32_t j = 0; j < 8; j++)
+        {
+            if (crc & 1)
+                crc = (crc >> 1) ^ 0xEDB88320;
+            else
+                crc >>= 1;
+        }
+        crc32_table[i] = crc;
+    }
+    crc32_table_initialized = true;
+}
+
+// -------------------- Flash Programming --------------------
+static HAL_StatusTypeDef flash_erase_page(uint32_t page_addr)
+{
+    FLASH_EraseInitTypeDef EraseInitStruct;
+    uint32_t PageError = 0;
+    uint32_t flash_addr = FLASH_BASE_ADDR + (page_addr * FLASH_PAGE_SIZE);
+
+    // Check if address is within application range
+    if (flash_addr < APP_START_ADDR || flash_addr >= APP_END_ADDR)
+    {
+        debug_log("Flash erase: Invalid address 0x%08X\r\n", flash_addr);
+        return HAL_ERROR;
+    }
+
+    // Unlock flash
+    HAL_FLASH_Unlock();
+
+    EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
+    EraseInitStruct.PageAddress = flash_addr;
+    EraseInitStruct.NbPages = 1;
+
+    HAL_StatusTypeDef status = HAL_FLASHEx_Erase(&EraseInitStruct, &PageError);
+
+    HAL_FLASH_Lock();
+
+    if (status != HAL_OK)
+    {
+        debug_log("Flash erase failed: %d\r\n", status);
+    }
+    else
+    {
+        debug_log("Flash page %d erased at 0x%08X\r\n", page_addr, flash_addr);
+    }
+
+    return status;
+}
+
+static HAL_StatusTypeDef flash_write_page(uint32_t page_addr, const uint8_t *data)
+{
+    uint32_t flash_addr = FLASH_BASE_ADDR + (page_addr * FLASH_PAGE_SIZE);
+
+    // Check if address is within application range
+    if (flash_addr < APP_START_ADDR || flash_addr >= APP_END_ADDR)
+    {
+        debug_log("Flash write: Invalid address 0x%08X\r\n", flash_addr);
+        return HAL_ERROR;
+    }
+
+    // Unlock flash
+    HAL_FLASH_Unlock();
+
+    HAL_StatusTypeDef status = HAL_OK;
+    // Write half-words (16-bit) as required by STM32F0
+    for (uint32_t i = 0; i < FLASH_PAGE_SIZE; i += 2)
+    {
+        uint16_t halfword = data[i] | (data[i + 1] << 8);
+        status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, flash_addr + i, halfword);
+        if (status != HAL_OK)
+        {
+            debug_log("Flash write failed at offset %d: %d\r\n", i, status);
+            break;
+        }
+    }
+
+    HAL_FLASH_Lock();
+
+    if (status == HAL_OK)
+    {
+        debug_log("Flash page %d written at 0x%08X\r\n", page_addr, flash_addr);
+    }
+
+    return status;
+}
+
+static uint32_t flash_verify_crc32(uint32_t start_addr, uint32_t length)
+{
+    uint8_t buffer[256];  // Read in chunks
+    uint32_t crc = 0xFFFFFFFF;
+
+    if (!crc32_table_initialized)
+        init_crc32_table();
+
+    // Calculate CRC32 incrementally across all flash data
+    for (uint32_t offset = 0; offset < length; offset += sizeof(buffer))
+    {
+        uint32_t chunk_size = (length - offset < sizeof(buffer)) ? (length - offset) : sizeof(buffer);
+        const uint8_t *flash_ptr = (const uint8_t *)(start_addr + offset);
+
+        // Update CRC32 for this chunk (incremental calculation)
+        for (uint32_t i = 0; i < chunk_size; i++)
+        {
+            crc = (crc >> 8) ^ crc32_table[(crc ^ flash_ptr[i]) & 0xFF];
+        }
+    }
+
+    return crc ^ 0xFFFFFFFF;
+}
+
+// -------------------- Firmware Size Calculation --------------------
+static uint32_t calculate_firmware_size(void)
+{
+    // Start from the end and work backwards to find the last non-empty page
+    // A page is considered empty if all bytes are 0xFF (erased flash)
+    uint32_t last_page = 0;
+    bool found_data = false;
+    
+    // Check pages from end to beginning
+    for (int32_t page = FLASH_PAGE_COUNT - 1; page >= 0; page--)
+    {
+        uint32_t page_addr = FLASH_BASE_ADDR + (page * FLASH_PAGE_SIZE);
+        const uint8_t *page_ptr = (const uint8_t *)page_addr;
+        
+        // Check if page contains any non-0xFF data
+        bool page_has_data = false;
+        for (uint32_t i = 0; i < FLASH_PAGE_SIZE; i++)
+        {
+            if (page_ptr[i] != 0xFF)
+            {
+                page_has_data = true;
+                found_data = true;
+                break;
+            }
+        }
+        
+        if (page_has_data)
+        {
+            last_page = page;
+            break;
+        }
+    }
+    
+    if (!found_data)
+    {
+        // No firmware found, return minimum size (vector table is at least 8 bytes)
+        // Check if vector table is valid
+        const uint32_t *vector_table = (const uint32_t *)APP_START_ADDR;
+        uint32_t stack_ptr = vector_table[0];
+        uint32_t reset_handler = vector_table[1];
+        
+        // Basic validation: stack pointer should be in RAM range (0x20000000-0x20002000 for 8KB)
+        // Reset handler should be in flash range (0x08000000-0x08010000)
+        if ((stack_ptr >= 0x20000000 && stack_ptr < 0x20002000) &&
+            (reset_handler >= 0x08000000 && reset_handler < 0x08010000))
+        {
+            // Vector table is valid, firmware exists but might be very small
+            // Return at least one page
+            return FLASH_PAGE_SIZE;
+        }
+        return 0;
+    }
+    
+    // Return size up to and including the last page with data
+    return (last_page + 1) * FLASH_PAGE_SIZE;
+}
+
+// Firmware update state
+static bool fw_update_mode = false;
+static uint16_t fw_page_addr = 0;  // Current page address (0-63 for 64KB)
+static uint16_t fw_byte_index = 0;  // Current byte index within page (0-1023)
+static uint8_t fw_page_buffer[FLASH_PAGE_SIZE];  // Buffer for one flash page
+static uint32_t fw_crc32 = 0;  // Calculated CRC32
+static uint8_t fw_crc_read_index = 0;  // For reading CRC32 byte-by-byte
+static uint32_t fw_read_addr = APP_START_ADDR;  // Current firmware read address
+static uint32_t fw_size = 0;  // Calculated firmware size in bytes
+static uint8_t fw_size_read_index = 0;  // For reading firmware size byte-by-byte
+
+// -------------------- CRC32 Calculation --------------------
+static uint32_t crc32_table[256];
+static bool crc32_table_initialized = false;
+
+static void init_crc32_table(void)
+{
+    uint32_t crc;
+    for (uint32_t i = 0; i < 256; i++)
+    {
+        crc = i;
+        for (uint32_t j = 0; j < 8; j++)
+        {
+            if (crc & 1)
+                crc = (crc >> 1) ^ 0xEDB88320;
+            else
+                crc >>= 1;
+        }
+        crc32_table[i] = crc;
+    }
+    crc32_table_initialized = true;
+}
+
+// -------------------- Flash Programming --------------------
+static HAL_StatusTypeDef flash_erase_page(uint32_t page_addr)
+{
+    FLASH_EraseInitTypeDef EraseInitStruct;
+    uint32_t PageError = 0;
+    uint32_t flash_addr = FLASH_BASE_ADDR + (page_addr * FLASH_PAGE_SIZE);
+
+    // Check if address is within application range
+    if (flash_addr < APP_START_ADDR || flash_addr >= APP_END_ADDR)
+    {
+        debug_log("Flash erase: Invalid address 0x%08X\r\n", flash_addr);
+        return HAL_ERROR;
+    }
+
+    // Unlock flash
+    HAL_FLASH_Unlock();
+
+    EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
+    EraseInitStruct.PageAddress = flash_addr;
+    EraseInitStruct.NbPages = 1;
+
+    HAL_StatusTypeDef status = HAL_FLASHEx_Erase(&EraseInitStruct, &PageError);
+
+    HAL_FLASH_Lock();
+
+    if (status != HAL_OK)
+    {
+        debug_log("Flash erase failed: %d\r\n", status);
+    }
+    else
+    {
+        debug_log("Flash page %d erased at 0x%08X\r\n", page_addr, flash_addr);
+    }
+
+    return status;
+}
+
+static HAL_StatusTypeDef flash_write_page(uint32_t page_addr, const uint8_t *data)
+{
+    uint32_t flash_addr = FLASH_BASE_ADDR + (page_addr * FLASH_PAGE_SIZE);
+
+    // Check if address is within application range
+    if (flash_addr < APP_START_ADDR || flash_addr >= APP_END_ADDR)
+    {
+        debug_log("Flash write: Invalid address 0x%08X\r\n", flash_addr);
+        return HAL_ERROR;
+    }
+
+    // Unlock flash
+    HAL_FLASH_Unlock();
+
+    HAL_StatusTypeDef status = HAL_OK;
+    // Write half-words (16-bit) as required by STM32F0
+    for (uint32_t i = 0; i < FLASH_PAGE_SIZE; i += 2)
+    {
+        uint16_t halfword = data[i] | (data[i + 1] << 8);
+        status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, flash_addr + i, halfword);
+        if (status != HAL_OK)
+        {
+            debug_log("Flash write failed at offset %d: %d\r\n", i, status);
+            break;
+        }
+    }
+
+    HAL_FLASH_Lock();
+
+    if (status == HAL_OK)
+    {
+        debug_log("Flash page %d written at 0x%08X\r\n", page_addr, flash_addr);
+    }
+
+    return status;
+}
+
+static uint32_t flash_verify_crc32(uint32_t start_addr, uint32_t length)
+{
+    uint8_t buffer[256];  // Read in chunks
+    uint32_t crc = 0xFFFFFFFF;
+
+    if (!crc32_table_initialized)
+        init_crc32_table();
+
+    // Calculate CRC32 incrementally across all flash data
+    for (uint32_t offset = 0; offset < length; offset += sizeof(buffer))
+    {
+        uint32_t chunk_size = (length - offset < sizeof(buffer)) ? (length - offset) : sizeof(buffer);
+        const uint8_t *flash_ptr = (const uint8_t *)(start_addr + offset);
+
+        // Update CRC32 for this chunk (incremental calculation)
+        for (uint32_t i = 0; i < chunk_size; i++)
+        {
+            crc = (crc >> 8) ^ crc32_table[(crc ^ flash_ptr[i]) & 0xFF];
+        }
+    }
+
+    return crc ^ 0xFFFFFFFF;
+}
+
+// -------------------- Firmware Size Calculation --------------------
+static uint32_t calculate_firmware_size(void)
+{
+    // Start from the end and work backwards to find the last non-empty page
+    // A page is considered empty if all bytes are 0xFF (erased flash)
+    uint32_t last_page = 0;
+    bool found_data = false;
+    
+    // Check pages from end to beginning
+    for (int32_t page = FLASH_PAGE_COUNT - 1; page >= 0; page--)
+    {
+        uint32_t page_addr = FLASH_BASE_ADDR + (page * FLASH_PAGE_SIZE);
+        const uint8_t *page_ptr = (const uint8_t *)page_addr;
+        
+        // Check if page contains any non-0xFF data
+        bool page_has_data = false;
+        for (uint32_t i = 0; i < FLASH_PAGE_SIZE; i++)
+        {
+            if (page_ptr[i] != 0xFF)
+            {
+                page_has_data = true;
+                found_data = true;
+                break;
+            }
+        }
+        
+        if (page_has_data)
+        {
+            last_page = page;
+            break;
+        }
+    }
+    
+    if (!found_data)
+    {
+        // No firmware found, return minimum size (vector table is at least 8 bytes)
+        // Check if vector table is valid
+        const uint32_t *vector_table = (const uint32_t *)APP_START_ADDR;
+        uint32_t stack_ptr = vector_table[0];
+        uint32_t reset_handler = vector_table[1];
+        
+        // Basic validation: stack pointer should be in RAM range (0x20000000-0x20002000 for 8KB)
+        // Reset handler should be in flash range (0x08000000-0x08010000)
+        if ((stack_ptr >= 0x20000000 && stack_ptr < 0x20002000) &&
+            (reset_handler >= 0x08000000 && reset_handler < 0x08010000))
+        {
+            // Vector table is valid, firmware exists but might be very small
+            // Return at least one page
+            return FLASH_PAGE_SIZE;
+        }
+        return 0;
+    }
+    
+    // Return size up to and including the last page with data
+    return (last_page + 1) * FLASH_PAGE_SIZE;
+}
 
 // -------------------- Initialization --------------------
 void smbus_i2c_init(void)
@@ -97,6 +511,18 @@ void smbus_i2c_init(void)
 
     state = SMBUS_SMS_READY;
     currentCommand = -1;
+    
+    // Initialize firmware update state
+    fw_update_mode = false;
+    fw_page_addr = 0;
+    fw_byte_index = 0;
+    fw_crc32 = 0;
+    fw_crc_read_index = 0;
+    fw_read_addr = APP_START_ADDR;
+    fw_size = 0;  // Will be calculated on demand
+    fw_size_read_index = 0;
+    memset(fw_page_buffer, 0xFF, FLASH_PAGE_SIZE);
+    
     debug_log("SMBus: I2C Slave 0x%02X ready\r\n", I2C_SLAVE_ADDR);
 }
 
@@ -126,10 +552,31 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
             // If we don't have a response yet, try to get one
             if (!(state & (SMBUS_SMS_READY | SMBUS_SMS_RESPONSE_READY)) && currentCommand != -1)
             {
-                // Prepare response if we have a command
-                if (currentCommand != -1)
+                // For firmware read command, prepare response fresh each time (address auto-increments)
+                if (currentCommand == I2C_FW_UPDATE_READ_FIRMWARE)
                 {
-                    // Response already prepared in SlaveRxCpltCallback
+                    // Prepare response fresh for each read
+                    if (fw_read_addr >= APP_START_ADDR && fw_read_addr < APP_END_ADDR)
+                    {
+                        const uint8_t *flash_ptr = (const uint8_t *)fw_read_addr;
+                        responseByte = *flash_ptr;
+                        fw_read_addr++;
+                        // Wrap around if we exceed end address
+                        if (fw_read_addr > APP_END_ADDR)
+                        {
+                            fw_read_addr = APP_START_ADDR;
+                        }
+                        state |= SMBUS_SMS_RESPONSE_READY;
+                    }
+                    else
+                    {
+                        responseByte = 0xFF;  // Invalid address
+                        state |= SMBUS_SMS_RESPONSE_READY;
+                    }
+                }
+                else if (currentCommand != -1)
+                {
+                    // Response already prepared in SlaveRxCpltCallback for other commands
                     state |= SMBUS_SMS_RESPONSE_READY;
                 }
                 else
@@ -240,6 +687,92 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
                     responseByte = 0x04;
                     break;
                 }
+                // Firmware Update Read Commands
+                case I2C_FW_UPDATE_READ_STATUS:
+                {
+                    // Status byte: bit 0 = update mode active, bit 1 = page ready, bit 2 = error
+                    responseByte = (fw_update_mode ? 0x01 : 0x00) |
+                                   ((fw_byte_index == FLASH_PAGE_SIZE) ? 0x02 : 0x00);
+                    break;
+                }
+                case I2C_FW_UPDATE_READ_PAGE_ADDR_LOW:
+                {
+                    responseByte = fw_page_addr & 0xFF;
+                    break;
+                }
+                case I2C_FW_UPDATE_READ_PAGE_ADDR_HIGH:
+                {
+                    responseByte = (fw_page_addr >> 8) & 0xFF;
+                    break;
+                }
+                case I2C_FW_UPDATE_READ_CRC_BYTE0:
+                {
+                    fw_crc_read_index = 0;
+                    responseByte = fw_crc32 & 0xFF;
+                    break;
+                }
+                case I2C_FW_UPDATE_READ_CRC_BYTE1:
+                {
+                    fw_crc_read_index = 1;
+                    responseByte = (fw_crc32 >> 8) & 0xFF;
+                    break;
+                }
+                case I2C_FW_UPDATE_READ_CRC_BYTE2:
+                {
+                    fw_crc_read_index = 2;
+                    responseByte = (fw_crc32 >> 16) & 0xFF;
+                    break;
+                }
+                case I2C_FW_UPDATE_READ_CRC_BYTE3:
+                {
+                    fw_crc_read_index = 3;
+                    responseByte = (fw_crc32 >> 24) & 0xFF;
+                    break;
+                }
+                case I2C_FW_UPDATE_READ_FIRMWARE:
+                {
+                    // For firmware read, response is prepared fresh in AddrCallback for each read
+                    // This allows sequential reads with auto-incrementing address
+                    // Just mark that we have a valid command, response will be prepared on read
+                    responseByte = 0x00;  // Dummy value, will be overwritten in AddrCallback
+                    break;
+                }
+                case I2C_FW_UPDATE_READ_ADDR_LOW:
+                {
+                    responseByte = fw_read_addr & 0xFF;
+                    break;
+                }
+                case I2C_FW_UPDATE_READ_ADDR_HIGH:
+                {
+                    // Return address as 3 bytes: high, mid-high, mid-low (since address is 24-bit)
+                    // For simplicity, return low byte of high 16 bits
+                    responseByte = (fw_read_addr >> 8) & 0xFF;
+                    break;
+                }
+                case I2C_FW_UPDATE_READ_SIZE_BYTE0:
+                {
+                    fw_size_read_index = 0;
+                    responseByte = fw_size & 0xFF;
+                    break;
+                }
+                case I2C_FW_UPDATE_READ_SIZE_BYTE1:
+                {
+                    fw_size_read_index = 1;
+                    responseByte = (fw_size >> 8) & 0xFF;
+                    break;
+                }
+                case I2C_FW_UPDATE_READ_SIZE_BYTE2:
+                {
+                    fw_size_read_index = 2;
+                    responseByte = (fw_size >> 16) & 0xFF;
+                    break;
+                }
+                case I2C_FW_UPDATE_READ_SIZE_BYTE3:
+                {
+                    fw_size_read_index = 3;
+                    responseByte = (fw_size >> 24) & 0xFF;
+                    break;
+                }
                 default:
                 {
                     responseByte = 0xFF;
@@ -341,14 +874,156 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                     }
                     break;
                 }
+                // Firmware Update Write Commands
+                case I2C_FW_UPDATE_WRITE_MODE:
+                {
+                    // Enter (0x01) or exit (0x00) firmware update mode
+                    if (dataByte == 0x01)
+                    {
+                        fw_update_mode = true;
+                        fw_page_addr = 0;
+                        fw_byte_index = 0;
+                        memset(fw_page_buffer, 0xFF, FLASH_PAGE_SIZE);
+                        debug_log("Firmware update mode enabled\r\n");
+                    }
+                    else if (dataByte == 0x00)
+                    {
+                        fw_update_mode = false;
+                        debug_log("Firmware update mode disabled\r\n");
+                    }
+                    break;
+                }
+                case I2C_FW_UPDATE_WRITE_PAGE_ADDR_LOW:
+                {
+                    if (fw_update_mode)
+                    {
+                        fw_page_addr = (fw_page_addr & 0xFF00) | dataByte;
+                        fw_byte_index = 0;
+                        memset(fw_page_buffer, 0xFF, FLASH_PAGE_SIZE);
+                    }
+                    break;
+                }
+                case I2C_FW_UPDATE_WRITE_PAGE_ADDR_HIGH:
+                {
+                    if (fw_update_mode)
+                    {
+                        fw_page_addr = (fw_page_addr & 0x00FF) | (dataByte << 8);
+                        fw_byte_index = 0;
+                        memset(fw_page_buffer, 0xFF, FLASH_PAGE_SIZE);
+                        debug_log("Set page address: %d\r\n", fw_page_addr);
+                    }
+                    break;
+                }
+                case I2C_FW_UPDATE_WRITE_DATA:
+                {
+                    if (fw_update_mode && fw_byte_index < FLASH_PAGE_SIZE)
+                    {
+                        fw_page_buffer[fw_byte_index++] = dataByte;
+                    }
+                    break;
+                }
+                case I2C_FW_UPDATE_ERASE_PAGE:
+                {
+                    if (fw_update_mode && fw_page_addr < FLASH_PAGE_COUNT)
+                    {
+                        HAL_StatusTypeDef status = flash_erase_page(fw_page_addr);
+                        if (status == HAL_OK)
+                        {
+                            debug_log("Page %d erased successfully\r\n", fw_page_addr);
+                        }
+                        else
+                        {
+                            debug_log("Page erase failed\r\n");
+                        }
+                    }
+                    break;
+                }
+                case I2C_FW_UPDATE_COMMIT_PAGE:
+                {
+                    if (fw_update_mode && fw_page_addr < FLASH_PAGE_COUNT)
+                    {
+                        if (fw_byte_index == FLASH_PAGE_SIZE)
+                        {
+                            HAL_StatusTypeDef status = flash_write_page(fw_page_addr, fw_page_buffer);
+                            if (status == HAL_OK)
+                            {
+                                debug_log("Page %d committed successfully\r\n", fw_page_addr);
+                                // Reset buffer for next page
+                                fw_byte_index = 0;
+                                memset(fw_page_buffer, 0xFF, FLASH_PAGE_SIZE);
+                            }
+                            else
+                            {
+                                debug_log("Page commit failed\r\n");
+                            }
+                        }
+                        else
+                        {
+                            debug_log("Page not full: %d bytes\r\n", fw_byte_index);
+                        }
+                    }
+                    break;
+                }
+                case I2C_FW_UPDATE_VERIFY:
+                {
+                    if (fw_update_mode)
+                    {
+                        // Calculate CRC32 of entire application area
+                        fw_crc32 = flash_verify_crc32(APP_START_ADDR, FLASH_TOTAL_SIZE);
+                        debug_log("Firmware CRC32: 0x%08X\r\n", fw_crc32);
+                    }
+                    break;
+                }
+                case I2C_FW_UPDATE_RESET:
+                {
+                    if (fw_update_mode && dataByte == 0xAA)  // Safety check
+                    {
+                        debug_log("Resetting to new firmware...\r\n");
+                        HAL_Delay(100);
+                        NVIC_SystemReset();
+                    }
+                    break;
+                }
                 case I2C_HDMI_COMMAND_WRITE_BOOTLOADER:
                 {
                     if (dataByte == 0x01)
                     {
                         *BOOTLOADER_FLAG_ADDRESS = 0;
-                        HAL_Delay(10); 
+                        HAL_Delay(100); 
                         NVIC_SystemReset();
                     }
+                }
+                case I2C_FW_UPDATE_SET_READ_ADDR_LOW:
+                {
+                    // Set firmware read address low byte
+                    fw_read_addr = (fw_read_addr & 0xFFFFFF00) | dataByte;
+                    // Ensure address is within valid range
+                    if (fw_read_addr < APP_START_ADDR)
+                        fw_read_addr = APP_START_ADDR;
+                    else if (fw_read_addr > APP_END_ADDR)
+                        fw_read_addr = APP_END_ADDR;
+                    break;
+                }
+                case I2C_FW_UPDATE_SET_READ_ADDR_HIGH:
+                {
+                    // Set firmware read address high bytes (16-bit address)
+                    // For 64KB flash, we need 16 bits total
+                    uint16_t addr_low = fw_read_addr & 0xFF;
+                    uint16_t addr_high = dataByte;
+                    fw_read_addr = APP_START_ADDR + ((addr_high << 8) | addr_low);
+                    // Ensure address is within valid range
+                    if (fw_read_addr < APP_START_ADDR)
+                        fw_read_addr = APP_START_ADDR;
+                    else if (fw_read_addr > APP_END_ADDR)
+                        fw_read_addr = APP_END_ADDR;
+                    debug_log("Set firmware read address: 0x%08X\r\n", fw_read_addr);
+                    break;
+                }
+                case I2C_FW_UPDATE_CALCULATE_SIZE:
+                {
+                    // Calculate firmware size and cache it
+                    fw_size = calculate_firmware_size();
+                    debug_log("Calculated firmware size: %lu bytes (0x%08lX)\r\n", fw_size, fw_size);
                     break;
                 }
             }

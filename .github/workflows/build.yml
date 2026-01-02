@@ -11,13 +11,13 @@ jobs:
     strategy:
       matrix:
         variant:
-          - env: xboxhdmi_stm32f0
+          - env: combined_stm32f0
             name: connexant
             defines: "-DBUILD_CONEXANT"
-          - env: xboxhdmi_stm32f0
+          - env: combined_stm32f0
             name: focus
             defines: "-DBUILD_FOCUS"
-          - env: xboxhdmi_stm32f0
+          - env: combined_stm32f0
             name: xcalibur
             defines: "-DBUILD_XCALIBUR"
 
@@ -98,6 +98,7 @@ jobs:
         draft: false
         files: |
           release-artifacts/*
+
 
 
 

@@ -13,12 +13,14 @@
 // [21] = EXTI0_1_IRQHandler (IRQ #5)
 // [40] = I2C2_IRQHandler (IRQ #24)
 
+extern uint8_t bootloader_running;
+
 void SysTick_Handler(void)
 {
     volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
     uint32_t app_systick_addr = app_vector_table[15];
     
-    if (app_systick_addr != 0xFFFFFFFF && app_systick_addr != 0x00000000) {
+    if (bootloader_running == 0 && app_systick_addr != 0xFFFFFFFF && app_systick_addr != 0x00000000) {
         void (*app_systick_handler)(void) = (void (*)(void))app_systick_addr;
         app_systick_handler();
     } else {
@@ -32,7 +34,7 @@ void HardFault_Handler(void)
     volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
     uint32_t app_hardfault_addr = app_vector_table[3];
     
-    if (app_hardfault_addr != 0xFFFFFFFF && app_hardfault_addr != 0x00000000) {
+    if (bootloader_running == 0 && app_hardfault_addr != 0xFFFFFFFF && app_hardfault_addr != 0x00000000) {
         void (*app_hardfault_handler)(void) = (void (*)(void))app_hardfault_addr;
         app_hardfault_handler();
     } else {
@@ -46,7 +48,7 @@ void EXTI0_1_IRQHandler(void)
     volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
     uint32_t app_exti_addr = app_vector_table[21];
     
-    if (app_exti_addr != 0xFFFFFFFF && app_exti_addr != 0x00000000) {
+    if (bootloader_running == 0 && app_exti_addr != 0xFFFFFFFF && app_exti_addr != 0x00000000) {
         void (*app_exti_handler)(void) = (void (*)(void))app_exti_addr;
         app_exti_handler();
     }
@@ -83,7 +85,7 @@ void I2C2_IRQHandler(void)
     volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
     uint32_t app_i2c2_addr = app_vector_table[40];
     
-    if (app_i2c2_addr != 0xFFFFFFFF && app_i2c2_addr != 0x00000000) {
+    if (bootloader_running == 0 && app_i2c2_addr != 0xFFFFFFFF && app_i2c2_addr != 0x00000000) {
         void (*app_i2c2_handler)(void) = (void (*)(void))app_i2c2_addr;
         app_i2c2_handler();
     }

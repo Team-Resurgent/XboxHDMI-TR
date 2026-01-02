@@ -16,13 +16,28 @@ static uint32_t calculate_checksum(uint32_t start, uint32_t length);
 
 extern void SystemClock_Config(void);
 
+volatile uint8_t bootloader_running = 0;
+
 int main(void) 
 {    
+    bootloader_running = 1;
+
     HAL_Init();    
     SystemClock_Config();
 
     debug_init();
     debug_log("Entering Bootloader...\r\n");
+
+    init_led();
+
+    uint32_t flag_value = *BOOTLOADER_FLAG_ADDRESS;
+    if (flag_value == BOOTLOADER_MAGIC_VALUE) {
+        *BOOTLOADER_FLAG_ADDRESS = 0;
+        enter_bootloader_mode();
+    } else {
+        debug_log("Bootloader flag: NOT SET (0x%08lX)\r\n", flag_value);
+    }
+    
 
     // Check bootloader flag first (before any HAL init)
     // if (*BOOTLOADER_FLAG_ADDRESS == BOOTLOADER_MAGIC_VALUE) {
@@ -45,36 +60,25 @@ int main(void)
     while(1);
 }
 
-static uint32_t check_application_valid(void) 
-{
-    uint32_t *app_stack = (uint32_t *)APP_START_ADDRESS;
-    uint32_t *app_reset = (uint32_t *)(APP_START_ADDRESS + 4);
-    
-    // Check stack pointer is in valid RAM range (0x20000000 - 0x20002000 for STM32F030C8)
-    if (app_stack[0] < 0x20000000 || app_stack[0] > 0x20002000) {
-        return 0;
-    }
-    
-    // Check reset handler is in valid flash range
-    if (app_reset[0] < FLASH_START_ADDRESS || app_reset[0] > (FLASH_START_ADDRESS + FLASH_TOTAL_SIZE)) {
-        return 0;
-    }
-    
-    // Check if it's not all 0xFF (erased flash)
-    if (app_stack[0] == 0xFFFFFFFF && app_reset[0] == 0xFFFFFFFF) {
-        return 0;
-    }
-    
-    return 1;
-}
-
-static void jump_to_application(void) 
+static void jump_to_application() 
 {
     debug_log("Launching Application...\r\n");
 
     volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
     uint32_t stack_pointer = app_vector_table[0];
     uint32_t app_entry = app_vector_table[1];
+
+    if (stack_pointer < RAM_START_ADDRESS || stack_pointer > (RAM_START_ADDRESS + RAM_TOTAL_SIZE)) {
+        return;
+    }
+
+    if (app_entry < FLASH_START_ADDRESS || app_entry > (FLASH_START_ADDRESS + FLASH_TOTAL_SIZE)) {
+        return;
+    }
+    
+    if (stack_pointer == 0xFFFFFFFF && app_entry == 0xFFFFFFFF) {
+        return;
+    }
 
     __disable_irq();
 
@@ -85,6 +89,8 @@ static void jump_to_application(void)
     SysTick->LOAD = 0;
     SysTick->VAL = 0;
 
+    bootloader_running = 0;
+
     asm volatile (
         "mov sp,%0 ; blx %1"
         :: "r" (stack_pointer), "r" (app_entry)
@@ -93,25 +99,21 @@ static void jump_to_application(void)
     while (1);
 }
 
-static void enter_bootloader_mode(void) 
+static void enter_bootloader_mode() 
 {
-    HAL_Init();
-    SystemClock_Config();
-    init_led();
-    debug_init();
-    debug_log("Bootloader mode entered\r\n");
+    debug_log("Waiting for update...\r\n");
 
     static uint32_t last_blink = 0;
     static bool led_state = false;
     
     while(1) {
-        if ((HAL_GetTick() - last_blink) > 250) {
+        if ((HAL_GetTick() - last_blink) > 100) {
             led_state = !led_state;
             set_led_1(led_state); 
             set_led_2(!led_state); 
             last_blink = HAL_GetTick();
         }
-        HAL_Delay(100);
+        HAL_Delay(10);
     }
 }
 

@@ -5,8 +5,6 @@
 #include <string.h>
 #include <stdarg.h>
 
-#define DEBUG_OUT
-
 #ifdef DEBUG_OUT
 
 static UART_HandleTypeDef huart2;
@@ -88,22 +86,4 @@ void debug_ring_flush()
     }
 }
 
-#else
-void debug_init() 
-{
-}
-
-void debug_log(const char *fmt, ...)
-{
-    (void) fmt;
-}
-
-void debug_ring_log(const char *fmt, ...)
-{
-    (void) fmt;
-}
-
-void debug_ring_flush()
-{
-}
 #endif

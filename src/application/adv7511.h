@@ -242,6 +242,11 @@ uint8_t adv7511_read_register(const uint8_t address);
 void adv7511_write_register(const uint8_t address, uint8_t value);
 void adv7511_write_cec(const uint8_t address, uint8_t value);
 void adv7511_struct_init(adv7511 *encoder);
-void apply_csc(const uint8_t * const coefficients);
+void adv7511_apply_csc(const uint8_t * const coefficients);
+
+void adv7511_disable_video();
+void adv7511_enable_video();
+void adv7511_power_down_tmds();
+void adv7511_power_up_tmds();
 
 #endif // __ADV7511_H__

@@ -59,7 +59,6 @@ jobs:
       run: |
         mkdir -p artifacts
         cp .pio/build/${{ matrix.variant.env }}/firmware.bin artifacts/firmware_${{ matrix.variant.name }}.bin
-        cp .pio/build/${{ matrix.variant.env }}/firmware.elf artifacts/firmware_${{ matrix.variant.name }}.elf
 
     - name: Upload firmware artifacts
       uses: actions/upload-artifact@v4
@@ -98,6 +97,7 @@ jobs:
         draft: false
         files: |
           release-artifacts/*
+
 
 
 

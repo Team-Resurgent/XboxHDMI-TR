@@ -1,4 +1,4 @@
-# Based of Original Xbox 100% Digital HDMI (Prototype) by Ryzee119
+## Based of Original Xbox 100% Digital HDMI (Prototype) by Ryzee119
 
 This project aims to a open source alternate firmware for OXHD + MakeMHz's HD+
 
@@ -40,7 +40,8 @@ Full pinout for reference...
 To Do:
 - Enhance functionality (on-going)
 - Check all video modes render correctly (on-going)
-- Add ability for stm to be programmed from xbox
+- Add ability for stm to be programmed from xbox (in progress)
 
 
 EqUiNoX
+

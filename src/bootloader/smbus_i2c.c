@@ -71,19 +71,19 @@ void smbus_i2c_init(void)
     hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
     hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE; // allow clock stretching
 
-    if(HAL_I2C_Init(&hi2c2) != HAL_OK)
+    if(HAL_I2C_Init((I2C_HandleTypeDef*)&hi2c2) != HAL_OK)
     {
         debug_log("SMBUS I2C init failed\n");
         while(1);
     }
 
-    if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+    if (HAL_I2CEx_ConfigAnalogFilter((I2C_HandleTypeDef*)&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
     {
         debug_log("SMBUS I2C config analog filter failed\n");
         while(1);
     }
 
-    if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
+    if (HAL_I2CEx_ConfigDigitalFilter((I2C_HandleTypeDef*)&hi2c2, 0) != HAL_OK)
     {
         debug_log("SMBUS I2C config digital filter failed\n");
         while(1);
@@ -93,7 +93,7 @@ void smbus_i2c_init(void)
     HAL_NVIC_EnableIRQ(I2C2_IRQn);
 
     // Start listening for master
-    HAL_I2C_EnableListen_IT(&hi2c2);
+    HAL_I2C_EnableListen_IT((I2C_HandleTypeDef*)&hi2c2);
 
     state = SMBUS_SMS_READY;
     currentCommand = -1;

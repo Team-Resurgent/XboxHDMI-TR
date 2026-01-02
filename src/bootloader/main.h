@@ -3,5 +3,4 @@
 
 #pragma once
 
-#include "../shared/interrupt.h"
 #include "../shared/error_handler.h"

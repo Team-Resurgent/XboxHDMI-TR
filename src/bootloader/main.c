@@ -7,154 +7,102 @@
 #include "../shared/debug.h"
 #include "../shared/error_handler.h"
 
-static uint32_t check_application_valid(void);
+#include <stdbool.h>
+
+static bool can_launch_application(void);
 static void jump_to_application(void);
 static void enter_bootloader_mode(void);
 static void flash_erase_page(uint32_t address);
 static HAL_StatusTypeDef flash_write(uint32_t address, uint8_t *data, uint32_t len);
 static uint32_t calculate_checksum(uint32_t start, uint32_t length);
 
-typedef void (*app_entry_t)(void);
-
 extern void SystemClock_Config(void);
+volatile uint8_t bootloader_running = 0;
 
 int main(void) 
 {    
-    // if (*BOOTLOADER_FLAG_ADDRESS != BOOTLOADER_MAGIC_VALUE) {
-    //     *BOOTLOADER_FLAG_ADDRESS = 0; 
-    //     enter_bootloader_mode();
-    // } else if (check_application_valid()) {
-    //     jump_to_application();
-    // } 
+    bootloader_running = 1;
 
-    // if (check_application_valid()) {
-    //     jump_to_application();
-    // } 
-    
+    HAL_Init();    
+    SystemClock_Config();
+
+    debug_init();
+    debug_log("Entering Bootloader...\r\n");
+
+    uint32_t flag_value = *BOOTLOADER_FLAG_ADDRESS;
+    if (flag_value != BOOTLOADER_MAGIC_VALUE && can_launch_application())
+    {
+        jump_to_application();
+    }
+    *BOOTLOADER_FLAG_ADDRESS = 0;
     enter_bootloader_mode();
 }
 
-static uint32_t check_application_valid(void) 
+static bool can_launch_application(void)
 {
-    uint32_t *app_stack = (uint32_t *)APP_START_ADDRESS;
-    uint32_t *app_reset = (uint32_t *)(APP_START_ADDRESS + 4);
-    
-    // Check stack pointer is in valid RAM range (0x20000000 - 0x20002000 for STM32F030C8)
-    if (app_stack[0] < 0x20000000 || app_stack[0] > 0x20002000) {
-        return 0;
+    volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
+    uint32_t stack_pointer = app_vector_table[0];
+    uint32_t app_entry = app_vector_table[1];
+
+    if (stack_pointer < RAM_START_ADDRESS || stack_pointer > (RAM_START_ADDRESS + RAM_TOTAL_SIZE)) {
+        return false;
+    }
+
+    if (app_entry < FLASH_START_ADDRESS || app_entry > (FLASH_START_ADDRESS + FLASH_TOTAL_SIZE)) {
+        return false;
     }
     
-    // Check reset handler is in valid flash range
-    if (app_reset[0] < FLASH_START_ADDRESS || app_reset[0] > (FLASH_START_ADDRESS + FLASH_TOTAL_SIZE)) {
-        return 0;
+    if (stack_pointer == 0xFFFFFFFF && app_entry == 0xFFFFFFFF) {
+        return false;
     }
-    
-    // Check if it's not all 0xFF (erased flash)
-    if (app_stack[0] == 0xFFFFFFFF && app_reset[0] == 0xFFFFFFFF) {
-        return 0;
-    }
-    
-    return 1;
+
+    return true;
 }
 
 static void jump_to_application(void) 
 {
-    // Disable interrupts globally
+    debug_log("Launching Application...\r\n");
+
+    volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
+    uint32_t stack_pointer = app_vector_table[0];
+    uint32_t app_entry = app_vector_table[1];
+
     __disable_irq();
 
-    // Disable all peripheral interrupts (following article approach)
-    HAL_NVIC_DisableIRQ(SysTick_IRQn);
-    HAL_NVIC_DisableIRQ(USART2_IRQn);
-    HAL_NVIC_DisableIRQ(WWDG_IRQn);
-    HAL_NVIC_DisableIRQ(RTC_IRQn);
-    HAL_NVIC_DisableIRQ(FLASH_IRQn);
-    HAL_NVIC_DisableIRQ(RCC_IRQn);
-    HAL_NVIC_DisableIRQ(EXTI0_1_IRQn);
-    HAL_NVIC_DisableIRQ(EXTI2_3_IRQn);
-    HAL_NVIC_DisableIRQ(EXTI4_15_IRQn);
-    HAL_NVIC_DisableIRQ(DMA1_Channel1_IRQn);
-    HAL_NVIC_DisableIRQ(DMA1_Channel2_3_IRQn);
-    HAL_NVIC_DisableIRQ(DMA1_Channel4_5_IRQn);
-    HAL_NVIC_DisableIRQ(ADC1_IRQn);
-    HAL_NVIC_DisableIRQ(TIM1_BRK_UP_TRG_COM_IRQn);
-    HAL_NVIC_DisableIRQ(TIM1_CC_IRQn);
-    HAL_NVIC_DisableIRQ(TIM3_IRQn);
-    HAL_NVIC_DisableIRQ(TIM6_IRQn);
-    HAL_NVIC_DisableIRQ(TIM14_IRQn);
-    HAL_NVIC_DisableIRQ(TIM15_IRQn);
-    HAL_NVIC_DisableIRQ(TIM16_IRQn);
-    HAL_NVIC_DisableIRQ(TIM17_IRQn);
-    HAL_NVIC_DisableIRQ(I2C1_IRQn);
-    HAL_NVIC_DisableIRQ(I2C2_IRQn);
-    HAL_NVIC_DisableIRQ(SPI1_IRQn);
-    HAL_NVIC_DisableIRQ(SPI2_IRQn);
-    HAL_NVIC_DisableIRQ(USART1_IRQn);
+    HAL_RCC_DeInit();
+    HAL_DeInit();
 
-    // Reset SysTick
     SysTick->CTRL = 0;
     SysTick->LOAD = 0;
     SysTick->VAL = 0;
 
-    // STM32F0 (Cortex-M0) does not have VTOR register.
-    // We need to copy the application's vector table to SRAM and remap SRAM to 0x00000000.
-    
-    // Enable SYSCFG clock (required for memory remapping)
-    __HAL_RCC_SYSCFG_CLK_ENABLE();
-    
-    // Copy vector table from application flash to start of SRAM
-    // After remapping, SRAM at 0x20000000 will be accessible at 0x00000000
-    // So we copy the vector table to 0x20000000, and it will appear at 0x00000000 after remap
-    const uint32_t VECTOR_TABLE_SIZE = 48;  // Number of vectors in Cortex-M0 vector table (48 * 4 = 192 bytes)
-    const uint32_t SRAM_VT_ADDR = 0x20000000;   // Start of SRAM
-    
-    uint32_t *app_vectors = (uint32_t *)APP_START_ADDRESS;
-    uint32_t *sram_vectors = (uint32_t *)SRAM_VT_ADDR;
-    
-    // Copy vector table from application flash to SRAM
-    for (uint32_t i = 0; i < VECTOR_TABLE_SIZE; i++) {
-        sram_vectors[i] = app_vectors[i];
-    }
-    
-    // Remap SRAM to 0x00000000 using SYSCFG_CFGR1
-    // MEM_MODE bits [1:0]: 00=Flash, 01=System Flash, 10=SRAM, 11=Reserved
-    // Set to 10 (SRAM remapped) = 0x02
-    SYSCFG->CFGR1 &= ~(0x03);  // Clear bits [1:0]
-    SYSCFG->CFGR1 |= 0x02;     // Set to SRAM remapped (10 in binary)
-    
-    // Memory barrier to ensure remapping is complete
-    __DSB();
-    __ISB();
-    
-    // Set stack pointer from application's vector table
-    uint32_t app_stack = app_vectors[0];
-    __set_MSP(app_stack);
-    
-    // Jump to application reset handler
-    uint32_t app_reset = app_vectors[1];
-    app_entry_t app_entry = (app_entry_t)app_reset;
-    app_entry();
+    bootloader_running = 0;
+
+    asm volatile (
+        "mov sp,%0 ; blx %1"
+        :: "r" (stack_pointer), "r" (app_entry)
+    );
+
+    while (1);
 }
 
 static void enter_bootloader_mode(void) 
 {
-    HAL_Init();
-    SystemClock_Config();
-
     init_led();
-    debug_init();
-    debug_log("Bootloader mode entered\r\n");
+
+    debug_log("Waiting for update...\r\n");
 
     static uint32_t last_blink = 0;
     static bool led_state = false;
     
     while(1) {
-        if ((HAL_GetTick() - last_blink) > 250) {
+        if ((HAL_GetTick() - last_blink) > 100) {
             led_state = !led_state;
             set_led_1(led_state); 
             set_led_2(!led_state); 
             last_blink = HAL_GetTick();
         }
-        HAL_Delay(100);
+        HAL_Delay(10);
     }
 }
 

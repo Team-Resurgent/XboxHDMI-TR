@@ -1,6 +1,7 @@
 #include "smbus_i2c.h"
 #include "stm32.h"
 #include "../shared/debug.h"
+#include "../shared/defines.h"
 #include <string.h>
 
 #define I2C_SLAVE_ADDR 0x69
@@ -18,6 +19,7 @@
 #define I2C_HDMI_COMMAND_WRITE_BANK 129
 #define I2C_HDMI_COMMAND_WRITE_INDEX 130
 #define I2C_HDMI_COMMAND_WRITE_APPLY 131
+#define I2C_HDMI_COMMAND_WRITE_BOOTLOADER 132
 
 // State flags (bit flags like reference)
 #define SMBUS_SMS_NONE           ((uint32_t)0x00000000)  /*!< Uninitialized stack */
@@ -334,7 +336,17 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                     {
                         memcpy(&settings, &scratchSettings, sizeof(SMBusSettings));
                         video_mode_update_pending = true;
-                        //debug_ring_log("SMBus: encoder=%02X region=%02X mode=%08X title=%08X avinfo=%08X\r\n", settings.encoder, settings.region, settings.mode, settings.titleid, settings.avinfo);
+                        debug_ring_log("SMBus: encoder=%02X region=%02X mode=%08X title=%08X avinfo=%08X\r\n", settings.encoder, settings.region, settings.mode, settings.titleid, settings.avinfo);
+                    }
+                    break;
+                }
+                case I2C_HDMI_COMMAND_WRITE_BOOTLOADER:
+                {
+                    if (dataByte == 0x01)
+                    {
+                        *BOOTLOADER_FLAG_ADDRESS = BOOTLOADER_MAGIC_VALUE;
+                        HAL_Delay(10); 
+                        NVIC_SystemReset();
                     }
                     break;
                 }

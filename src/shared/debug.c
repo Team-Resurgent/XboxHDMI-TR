@@ -5,7 +5,7 @@
 #include <string.h>
 #include <stdarg.h>
 
-// #define DEBUG_OUT
+#define DEBUG_OUT
 
 #ifdef DEBUG_OUT
 

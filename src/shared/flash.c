@@ -5,7 +5,7 @@
 #include "stm32.h"
 #include "crc32.h"
 
-static bool flash_erase_page(uint16_t page)
+bool flash_erase_page(uint16_t page)
 {
     uint32_t flash_addr = FLASH_START_ADDRESS + (page * FLASH_PAGE_SIZE);
 
@@ -24,7 +24,7 @@ static bool flash_erase_page(uint16_t page)
     return status == HAL_OK;
 }
 
-static bool flash_write_page(uint16_t page, uint8_t* data, uint16_t data_size)
+bool flash_write_page(uint16_t page, uint8_t* data, uint16_t data_size)
 {
     uint32_t flash_addr = FLASH_START_ADDRESS + (page * FLASH_PAGE_SIZE);
 
@@ -46,20 +46,8 @@ static bool flash_write_page(uint16_t page, uint8_t* data, uint16_t data_size)
     return status == HAL_OK;
 }
 
-static void flash_read_page(uint16_t page, uint8_t* data, uint16_t data_size)
+uint32_t flash_copy_page(uint16_t page, uint8_t* data, uint16_t data_size)
 {
     uint32_t flash_addr = FLASH_START_ADDRESS + (page * FLASH_PAGE_SIZE);
-    const uint8_t *flash_ptr = (const uint8_t *)flash_addr;
-
-    for (uint32_t i = 0; i < data_size; i++)
-    {
-        data[i] = flash_ptr[i];
-    }
-}
-
-static uint32_t flash_crc32_page(uint16_t page)
-{
-    uint32_t flash_addr = FLASH_START_ADDRESS + (page * FLASH_PAGE_SIZE);
-
-    return crc32_calc(flash_addr, FLASH_PAGE_SIZE);
+    return crc32_copy(flash_addr, data, data_size);
 }

@@ -8,6 +8,7 @@
 #define RAM_TOTAL_SIZE          0x2000
 #define FLASH_START_ADDRESS     0x08000000
 #define FLASH_TOTAL_SIZE        0x10000
+#define FLASH_PAGE_SHIFT        10
 
 #define BOOTLOADER_MAGIC_VALUE      0xDEADBEEF
 #define BOOTLOADER_FLAG_ADDRESS    ((volatile uint32_t*)(RAM_START_ADDRESS + 0xF0))
@@ -45,12 +46,11 @@
 #define I2C_HDMI_COMMAND_WRITE_CONFIG_APPLY 131 // Applies config when value is 1
 #define I2C_HDMI_COMMAND_WRITE_SET_MODE 132 // Reboots to Bootloader or Application (1=Bootloader 2=Application) if not already in that mode
 
-#define I2C_HDMI_COMMAND_WRITE_ERASE_PAGE 133 // Erases page at given value (validates page for current mode)
-#define I2C_HDMI_COMMAND_WRITE_READ_PAGE 134 // Reads page using given value into ram buffer
-#define I2C_HDMI_COMMAND_WRITE_RAM 135 // Write value to ram buffer at bank + index (post increments)
-#define I2C_HDMI_COMMAND_WRITE_RAM_BANK 136 // Write ram buffer bank (sets index to 0)
-#define I2C_HDMI_COMMAND_WRITE_RAM_INDEX 137 // Write ram buffer index
-#define I2C_HDMI_COMMAND_WRITE_RAM_APPLY 138 // Applies ram buffer to page with value (validates page for current mode)
+#define I2C_HDMI_COMMAND_WRITE_READ_PAGE 133 // Reads page using given value into ram buffer
+#define I2C_HDMI_COMMAND_WRITE_RAM 134 // Write value to ram buffer at bank + index (post increments)
+#define I2C_HDMI_COMMAND_WRITE_RAM_BANK 135 // Write ram buffer bank (sets index to 0)
+#define I2C_HDMI_COMMAND_WRITE_RAM_INDEX 136 // Write ram buffer index
+#define I2C_HDMI_COMMAND_WRITE_RAM_APPLY 137 // Applies ram buffer to page with value alseo erases + updates crc (validates page for current mode)
 
 #define I2C_HDMI_VERSION1 1
 #define I2C_HDMI_VERSION2 2
@@ -71,3 +71,5 @@
 #define SMBUS_SMS_PROCESSING     ((uint32_t)0x00000008)  /*!< Processing block (variable length transmissions) */
 #define SMBUS_SMS_RESPONSE_READY ((uint32_t)0x00000010)  /*!< Slave has reply ready for transmission */
 #define SMBUS_SMS_IGNORED        ((uint32_t)0x00000020)  /*!< The current command is not intended for this slave, ignore it */
+
+#define RAM_BUGFFER_SIZE 1024

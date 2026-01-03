@@ -1,24 +1,22 @@
 #include "smbus_i2c.h"
 #include "stm32.h"
+#include "flash.h"
 #include "../shared/debug.h"
 #include "../shared/defines.h"
 #include <string.h>
-
-// State flags (bit flags like reference)
-#define SMBUS_SMS_NONE           ((uint32_t)0x00000000)  /*!< Uninitialized stack */
-#define SMBUS_SMS_READY          ((uint32_t)0x00000001)  /*!< No operation ongoing */
-#define SMBUS_SMS_TRANSMIT       ((uint32_t)0x00000002)  /*!< State of writing data to the bus */
-#define SMBUS_SMS_RECEIVE        ((uint32_t)0x00000004)  /*!< State of receiving data on the bus */
-#define SMBUS_SMS_PROCESSING     ((uint32_t)0x00000008)  /*!< Processing block (variable length transmissions) */
-#define SMBUS_SMS_RESPONSE_READY ((uint32_t)0x00000010)  /*!< Slave has reply ready for transmission */
-#define SMBUS_SMS_IGNORED        ((uint32_t)0x00000020)  /*!< The current command is not intended for this slave, ignore it */
 
 static I2C_HandleTypeDef hi2c2;
 static uint32_t state = SMBUS_SMS_READY;
 static SMBusSettings scratchSettings = {0};
 static SMBusSettings settings = {0};
-static uint16_t store_bank = 0;
-static uint16_t store_index = 0;
+
+static uint16_t config_buffer_bank = 0;
+static uint16_t config_buffer_index = 0;
+
+static uint16_t ram_buffer_bank = 0;
+static uint16_t ram_buffer_index = 0;
+static uint8_t ram_buffer[RAM_BUGFFER_SIZE];
+static uint32_t ram_buffer_crc = 0;
 
 static int currentCommand = -1;  // -1 means no command, otherwise stores command byte
 static uint8_t commandByte = 0;
@@ -187,18 +185,18 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
                 case I2C_HDMI_COMMAND_READ_CONFIG:
                 {
                     uint16_t settings_size = sizeof(SMBusSettings);
-                    uint16_t settings_offset = (store_bank << 8) | store_index;
+                    uint16_t settings_offset = (config_buffer_bank << 8) | config_buffer_index;
                     if (settings_offset >= settings_size)
                     {
                         break;
                     }
                     uint8_t *settings_data = (uint8_t*)&settings;
                     responseByte = settings_data[settings_offset];
-                    store_index++;
-                    if (store_index > 0xff)
+                    config_buffer_index++;
+                    if (config_buffer_index > 0xff)
                     {
-                        store_index = 0;
-                        store_bank++;
+                        config_buffer_index = 0;
+                        config_buffer_bank++;
                     }
                     break;
                 }
@@ -225,6 +223,42 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
                 case I2C_HDMI_COMMAND_READ_MODE:
                 {
                     responseByte = I2C_HDMI_MODE_APPLICATION;
+                    break;
+                }
+                case I2C_HDMI_COMMAND_READ_RAM:
+                {
+                    uint16_t ram_buffer_offset = (ram_buffer_bank << 8) | ram_buffer_index;
+                    if (ram_buffer_offset >= RAM_BUGFFER_SIZE)
+                    {
+                        break;
+                    }
+                    responseByte = ram_buffer[ram_buffer_offset];
+                    ram_buffer_index++;
+                    if (ram_buffer_index > 0xff)
+                    {
+                        ram_buffer_index = 0;
+                        ram_buffer_bank++;
+                    }
+                    break;
+                }
+                case I2C_HDMI_COMMAND_READ_RAM_PAGE_CRC1:
+                {
+                    responseByte = (uint8_t)((ram_buffer_crc >> 24) & 0xff);
+                    break;
+                }
+                case I2C_HDMI_COMMAND_READ_RAM_PAGE_CRC2:
+                {
+                    responseByte = (uint8_t)((ram_buffer_crc >> 16) & 0xff);
+                    break;
+                }
+                case I2C_HDMI_COMMAND_READ_RAM_PAGE_CRC3:
+                {
+                    responseByte = (uint8_t)((ram_buffer_crc >> 8) & 0xff);
+                    break;
+                }
+                case I2C_HDMI_COMMAND_READ_RAM_PAGE_CRC4:
+                {
+                    responseByte = (uint8_t)(ram_buffer_crc & 0xff);
                     break;
                 }
                 default:
@@ -290,30 +324,30 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                 case I2C_HDMI_COMMAND_WRITE_CONFIG:
                 {
                     uint16_t settings_size = sizeof(SMBusSettings);
-                    uint16_t settings_offset = (store_bank << 8) | store_index;
+                    uint16_t settings_offset = (config_buffer_bank << 8) | config_buffer_index;
                     if (settings_offset >= settings_size)
                     {
                         break;
                     }
                     uint8_t *scratch_settings_data = (uint8_t*)&scratchSettings;
                     scratch_settings_data[settings_offset] = dataByte;
-                    store_index++;
-                    if (store_index > 0xff)
+                    config_buffer_index++;
+                    if (config_buffer_index > 0xff)
                     {
-                        store_index = 0;
-                        store_bank++;
+                        config_buffer_index = 0;
+                        config_buffer_bank++;
                     }
                     break;
                 }
                 case I2C_HDMI_COMMAND_WRITE_CONFIG_BANK:
                 {
-                    store_bank = dataByte;
-                    store_index = 0;
+                    config_buffer_bank = dataByte;
+                    config_buffer_index = 0;
                     break;
                 }
                 case I2C_HDMI_COMMAND_WRITE_CONFIG_INDEX:
                 {
-                     store_index = dataByte;
+                     config_buffer_index = dataByte;
                      break;
                 }
                 case I2C_HDMI_COMMAND_WRITE_CONFIG_APPLY:
@@ -340,6 +374,50 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                     }
                     HAL_Delay(10); 
                     NVIC_SystemReset();
+                    break;
+                }
+                case I2C_HDMI_COMMAND_WRITE_READ_PAGE:
+                {
+                    if (dataByte >= (BOOTLOADER_SIZE >> FLASH_PAGE_SHIFT) && dataByte < (FLASH_TOTAL_SIZE >> FLASH_PAGE_SHIFT))
+                    {
+                        ram_buffer_crc = flash_copy_page(dataByte, ram_buffer, RAM_BUGFFER_SIZE);
+                    }
+                    break;
+                }
+                case I2C_HDMI_COMMAND_WRITE_RAM:
+                {
+                    uint16_t ram_offset = (ram_buffer_bank << 8) | ram_buffer_index;
+                    if (ram_offset >= RAM_BUGFFER_SIZE)
+                    {
+                        break;
+                    }
+                    ram_buffer[ram_offset] = dataByte;
+                    ram_buffer_index++;
+                    if (ram_buffer_index > 0xff)
+                    {
+                        ram_buffer_index = 0;
+                        ram_buffer_bank++;
+                    }
+                    break;
+                }
+                case I2C_HDMI_COMMAND_WRITE_RAM_BANK:
+                {
+                    ram_buffer_bank = dataByte;
+                    ram_buffer_index = 0;
+                    break;
+                }
+                case I2C_HDMI_COMMAND_WRITE_RAM_INDEX:
+                {
+                    ram_buffer_index = dataByte;
+                    break;
+                }
+                case I2C_HDMI_COMMAND_WRITE_RAM_APPLY:
+                {
+                    if (dataByte >= (BOOTLOADER_SIZE >> FLASH_PAGE_SHIFT) && dataByte < (FLASH_TOTAL_SIZE >> FLASH_PAGE_SHIFT))
+                    {
+                        flash_erase_page(dataByte);
+                        flash_write_page(dataByte, ram_buffer, RAM_BUGFFER_SIZE);
+                    }
                     break;
                 }
             }

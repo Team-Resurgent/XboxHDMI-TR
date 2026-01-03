@@ -4,3 +4,9 @@
 #pragma once
 
 #include "../shared/error_handler.h"
+
+#include <stdbool.h>
+
+static bool can_launch_application(void);
+static void jump_to_application(void);
+static void enter_bootloader_mode(void);

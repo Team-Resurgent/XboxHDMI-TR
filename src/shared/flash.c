@@ -21,7 +21,7 @@ bool flash_erase_page(uint16_t page)
 
     HAL_FLASH_Lock();
 
-    return status = HAL_OK;
+    return status == HAL_OK;
 }
 
 bool flash_write_page(uint16_t page, uint8_t* data, uint16_t data_size)
@@ -43,7 +43,7 @@ bool flash_write_page(uint16_t page, uint8_t* data, uint16_t data_size)
 
     HAL_FLASH_Lock();
 
-    return status = HAL_OK;
+    return status == HAL_OK;
 }
 
 void flash_read_page(uint16_t page, uint8_t* data, uint16_t data_size)

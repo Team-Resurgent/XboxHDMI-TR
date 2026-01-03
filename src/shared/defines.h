@@ -14,4 +14,5 @@
 
 // Bootloader and application addresses (16KB bootloader)
 #define BOOTLOADER_SIZE         0x4000  // 16KB
-#define APP_START_ADDRESS       0x08004000
+#define APP_START_ADDRESS       (FLASH_START_ADDRESS + BOOTLOADER_SIZE)
+#define APP_TOTAL_SIZE          (FLASH_START_ADDRESS +  FLASH_TOTAL_SIZE - BOOTLOADER_SIZE)

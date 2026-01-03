@@ -24,7 +24,7 @@ static void _crc32_init(void)
     crc32_table_initialized = true;
 }
 
-uint32_t crc32_calc(uint32_t start_addr, uint32_t length)
+static uint32_t crc32_calc(uint32_t start_addr, uint32_t length)
 {
     uint32_t crc = 0xFFFFFFFF;
     const uint8_t *flash_ptr = (const uint8_t *)start_addr;

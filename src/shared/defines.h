@@ -25,18 +25,40 @@
 #define I2C_WRITE_BIT 0x80
 
 // Read Actions
-#define I2C_HDMI_COMMAND_READ_STORE 0
-#define I2C_HDMI_COMMAND_READ_VERSION1 1
-#define I2C_HDMI_COMMAND_READ_VERSION2 2
-#define I2C_HDMI_COMMAND_READ_VERSION3 3
-#define I2C_HDMI_COMMAND_READ_VERSION4 4
+#define I2C_HDMI_COMMAND_READ_CONFIG 0 // Read value from config at current bank + index (post increments)
+#define I2C_HDMI_COMMAND_READ_VERSION1 1 // Read version byte 1
+#define I2C_HDMI_COMMAND_READ_VERSION2 2 // Read version byte 2
+#define I2C_HDMI_COMMAND_READ_VERSION3 3 // Read version byte 3
+#define I2C_HDMI_COMMAND_READ_VERSION4 4 // Read version byte 4
+#define I2C_HDMI_COMMAND_READ_MODE 5 // Read current mode (1=Bootloader 2=Application)
+
+#define I2C_HDMI_COMMAND_READ_RAM 6 // Read value from ram buffer at bank + index (post increments)
+#define I2C_HDMI_COMMAND_READ_RAM_PAGE_CRC1 7 // Read crc byte 1 (from ram buffer)
+#define I2C_HDMI_COMMAND_READ_RAM_PAGE_CRC2 8 // Read crc byte 2 (from ram buffer)
+#define I2C_HDMI_COMMAND_READ_RAM_PAGE_CRC3 9 // Read crc byte 3 (from ram buffer)
+#define I2C_HDMI_COMMAND_READ_RAM_PAGE_CRC4 10 // Read crc byte 4 (from ram buffer)
 
 // Write Actions
-#define I2C_HDMI_COMMAND_WRITE_STORE 128
-#define I2C_HDMI_COMMAND_WRITE_BANK 129
-#define I2C_HDMI_COMMAND_WRITE_INDEX 130
-#define I2C_HDMI_COMMAND_WRITE_APPLY 131
-#define I2C_HDMI_COMMAND_WRITE_BOOTLOADER 132
+#define I2C_HDMI_COMMAND_WRITE_CONFIG 128 // Write value to config buffer at current bank + index (post increments)
+#define I2C_HDMI_COMMAND_WRITE_CONFIG_BANK 129 // Write config buffer bank (sets index to 0)
+#define I2C_HDMI_COMMAND_WRITE_CONFIG_INDEX 130 // Write config buffer index
+#define I2C_HDMI_COMMAND_WRITE_CONFIG_APPLY 131 // Applies config when value is 1
+#define I2C_HDMI_COMMAND_WRITE_SET_MODE 132 // Reboots to Bootloader or Application (1=Bootloader 2=Application) if not already in that mode
+
+#define I2C_HDMI_COMMAND_WRITE_ERASE_PAGE 133 // Erases page at given value (validates page for current mode)
+#define I2C_HDMI_COMMAND_WRITE_READ_PAGE 134 // Reads page using given value into ram buffer
+#define I2C_HDMI_COMMAND_WRITE_RAM 135 // Write value to ram buffer at bank + index (post increments)
+#define I2C_HDMI_COMMAND_WRITE_RAM_BANK 136 // Write ram buffer bank (sets index to 0)
+#define I2C_HDMI_COMMAND_WRITE_RAM_INDEX 137 // Write ram buffer index
+#define I2C_HDMI_COMMAND_WRITE_RAM_APPLY 138 // Applies ram buffer to page with value (validates page for current mode)
+
+#define I2C_HDMI_VERSION1 1
+#define I2C_HDMI_VERSION2 2
+#define I2C_HDMI_VERSION3 3
+#define I2C_HDMI_VERSION4 4
+
+#define I2C_HDMI_MODE_BOOTLOADER 1
+#define I2C_HDMI_MODE_APPLICATION 2
 
 // ============================================================================
 // SMBUS

@@ -184,7 +184,7 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
             // Read command - prepare response
             switch(commandByte)
             {
-                case I2C_HDMI_COMMAND_READ_STORE:
+                case I2C_HDMI_COMMAND_READ_CONFIG:
                 {
                     uint16_t settings_size = sizeof(SMBusSettings);
                     uint16_t settings_offset = (store_bank << 8) | store_index;
@@ -204,22 +204,27 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
                 }
                 case I2C_HDMI_COMMAND_READ_VERSION1:
                 {
-                    responseByte = 0x01;
+                    responseByte = I2C_HDMI_VERSION1;
                     break;
                 }
                 case I2C_HDMI_COMMAND_READ_VERSION2:
                 {
-                    responseByte = 0x02;
+                    responseByte = I2C_HDMI_VERSION2;
                     break;
                 }
                 case I2C_HDMI_COMMAND_READ_VERSION3:
                 {
-                    responseByte = 0x03;
+                    responseByte = I2C_HDMI_VERSION3;
                     break;
                 }
                 case I2C_HDMI_COMMAND_READ_VERSION4:
                 {
-                    responseByte = 0x04;
+                    responseByte = I2C_HDMI_VERSION4;
+                    break;
+                }
+                case I2C_HDMI_COMMAND_READ_MODE:
+                {
+                    responseByte = I2C_HDMI_MODE_APPLICATION;
                     break;
                 }
                 default:
@@ -282,7 +287,7 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
             // Process the write command
             switch(currentCommand)
             {
-                case I2C_HDMI_COMMAND_WRITE_STORE:
+                case I2C_HDMI_COMMAND_WRITE_CONFIG:
                 {
                     uint16_t settings_size = sizeof(SMBusSettings);
                     uint16_t settings_offset = (store_bank << 8) | store_index;
@@ -300,18 +305,18 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                     }
                     break;
                 }
-                case I2C_HDMI_COMMAND_WRITE_BANK:
+                case I2C_HDMI_COMMAND_WRITE_CONFIG_BANK:
                 {
                     store_bank = dataByte;
                     store_index = 0;
                     break;
                 }
-                case I2C_HDMI_COMMAND_WRITE_INDEX:
+                case I2C_HDMI_COMMAND_WRITE_CONFIG_INDEX:
                 {
                      store_index = dataByte;
                      break;
                 }
-                case I2C_HDMI_COMMAND_WRITE_APPLY:
+                case I2C_HDMI_COMMAND_WRITE_CONFIG_APPLY:
                 {
                     bios_took_over_control = true;
 
@@ -323,14 +328,18 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                     }
                     break;
                 }
-                case I2C_HDMI_COMMAND_WRITE_BOOTLOADER:
+                case I2C_HDMI_COMMAND_WRITE_SET_MODE:
                 {
-                    if (dataByte == 0x01)
+                    if (dataByte == I2C_HDMI_MODE_BOOTLOADER)
                     {
                         *BOOTLOADER_FLAG_ADDRESS = BOOTLOADER_MAGIC_VALUE;
-                        HAL_Delay(10); 
-                        NVIC_SystemReset();
                     }
+                    if (dataByte == I2C_HDMI_MODE_APPLICATION)
+                    {
+                        *BOOTLOADER_FLAG_ADDRESS = 0;
+                    }
+                    HAL_Delay(10); 
+                    NVIC_SystemReset();
                     break;
                 }
             }

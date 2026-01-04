@@ -1,11 +1,10 @@
 #include "led.h"
 
-static GPIO_InitTypeDef gpio;
-
 void init_led()
 {
     __HAL_RCC_GPIOC_CLK_ENABLE();
 
+    GPIO_InitTypeDef gpio;
     gpio.Pin = GPIO_PIN_13 | GPIO_PIN_14;
     gpio.Mode = GPIO_MODE_OUTPUT_PP;
     gpio.Pull = GPIO_NOPULL;

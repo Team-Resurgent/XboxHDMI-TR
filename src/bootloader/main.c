@@ -17,12 +17,13 @@ int main(void)
 
     HAL_Init();
     SystemClock_Config();
+    setup_recovery_gpio();
 
     debug_init();
     debug_log("Entering Bootloader...\r\n");
 
     uint32_t flag_value = *BOOTLOADER_FLAG_ADDRESS;
-    if (flag_value != BOOTLOADER_MAGIC_VALUE && can_launch_application())
+    if (flag_value != BOOTLOADER_MAGIC_VALUE && can_launch_application() && !recovery_jumper_enabled())
     {
         jump_to_application();
     }
@@ -98,4 +99,18 @@ void enter_bootloader_mode(void)
         }
         HAL_Delay(10);
     }
+}
+
+void setup_recovery_gpio() {
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+
+    GPIO_InitTypeDef gpio;
+    gpio.Pin = GPIO_PIN_15;
+    gpio.Mode = GPIO_MODE_INPUT;
+    gpio.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(GPIOC, &gpio);
+}
+
+bool recovery_jumper_enabled() {
+    return !HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_15);
 }

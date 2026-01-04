@@ -20,7 +20,7 @@ void SysTick_Handler(void)
 {
     volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
     uint32_t app_systick_addr = app_vector_table[15];
-    
+
     if (bootloader_running == 0 && app_systick_addr != 0xFFFFFFFF && app_systick_addr != 0x00000000) {
         void (*app_systick_handler)(void) = (void (*)(void))app_systick_addr;
         app_systick_handler();
@@ -34,7 +34,7 @@ void HardFault_Handler(void)
 {
     volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
     uint32_t app_hardfault_addr = app_vector_table[3];
-    
+
     if (bootloader_running == 0 && app_hardfault_addr != 0xFFFFFFFF && app_hardfault_addr != 0x00000000) {
         void (*app_hardfault_handler)(void) = (void (*)(void))app_hardfault_addr;
         app_hardfault_handler();
@@ -48,7 +48,7 @@ void EXTI0_1_IRQHandler(void)
 {
     volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
     uint32_t app_exti_addr = app_vector_table[21];
-    
+
     if (bootloader_running == 0 && app_exti_addr != 0xFFFFFFFF && app_exti_addr != 0x00000000) {
         void (*app_exti_handler)(void) = (void (*)(void))app_exti_addr;
         app_exti_handler();
@@ -70,7 +70,7 @@ void I2C2_IRQHandler(void)
     // Otherwise, forward to application
     volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
     uint32_t app_i2c2_addr = app_vector_table[40];
-    
+
     if (bootloader_running == 0 && bootloader_running == 0 && app_i2c2_addr != 0xFFFFFFFF && app_i2c2_addr != 0x00000000) {
         void (*app_i2c2_handler)(void) = (void (*)(void))app_i2c2_addr;
         app_i2c2_handler();

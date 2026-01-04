@@ -15,7 +15,7 @@ static uint16_t config_buffer_index = 0;
 
 static uint16_t ram_buffer_bank = 0;
 static uint16_t ram_buffer_index = 0;
-static uint8_t ram_buffer[RAM_BUGFFER_SIZE];
+static uint8_t ram_buffer[RAM_BUFFER_SIZE];
 static uint32_t ram_buffer_crc = 0;
 
 static int currentCommand = -1;  // -1 means no command, otherwise stores command byte
@@ -228,7 +228,7 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
                 case I2C_HDMI_COMMAND_READ_RAM:
                 {
                     uint16_t ram_buffer_offset = (ram_buffer_bank << 8) | ram_buffer_index;
-                    if (ram_buffer_offset >= RAM_BUGFFER_SIZE)
+                    if (ram_buffer_offset >= RAM_BUFFER_SIZE)
                     {
                         break;
                     }
@@ -372,7 +372,7 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                     {
                         *BOOTLOADER_FLAG_ADDRESS = 0;
                     }
-                    HAL_Delay(10); 
+                    HAL_Delay(10);
                     NVIC_SystemReset();
                     break;
                 }
@@ -380,14 +380,14 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                 {
                     if (dataByte >= (BOOTLOADER_SIZE >> FLASH_PAGE_SHIFT) && dataByte < (FLASH_TOTAL_SIZE >> FLASH_PAGE_SHIFT))
                     {
-                        ram_buffer_crc = flash_copy_page(dataByte, ram_buffer, RAM_BUGFFER_SIZE);
+                        ram_buffer_crc = flash_copy_page(dataByte, ram_buffer, RAM_BUFFER_SIZE);
                     }
                     break;
                 }
                 case I2C_HDMI_COMMAND_WRITE_RAM:
                 {
                     uint16_t ram_offset = (ram_buffer_bank << 8) | ram_buffer_index;
-                    if (ram_offset >= RAM_BUGFFER_SIZE)
+                    if (ram_offset >= RAM_BUFFER_SIZE)
                     {
                         break;
                     }
@@ -416,7 +416,7 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                     if (dataByte >= (BOOTLOADER_SIZE >> FLASH_PAGE_SHIFT) && dataByte < (FLASH_TOTAL_SIZE >> FLASH_PAGE_SHIFT))
                     {
                         flash_erase_page(dataByte);
-                        flash_write_page(dataByte, ram_buffer, RAM_BUGFFER_SIZE);
+                        flash_write_page(dataByte, ram_buffer, RAM_BUFFER_SIZE);
                     }
                     break;
                 }

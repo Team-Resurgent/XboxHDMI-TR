@@ -11,11 +11,11 @@
 extern void SystemClock_Config(void);
 volatile uint8_t bootloader_running = 0;
 
-int main(void) 
-{    
+int main(void)
+{
     bootloader_running = 1;
 
-    HAL_Init();    
+    HAL_Init();
     SystemClock_Config();
 
     debug_init();
@@ -43,7 +43,7 @@ bool can_launch_application(void)
     if (app_entry < FLASH_START_ADDRESS || app_entry > (FLASH_START_ADDRESS + FLASH_TOTAL_SIZE)) {
         return false;
     }
-    
+
     if (stack_pointer == 0xFFFFFFFF && app_entry == 0xFFFFFFFF) {
         return false;
     }
@@ -51,7 +51,7 @@ bool can_launch_application(void)
     return true;
 }
 
-void jump_to_application(void) 
+void jump_to_application(void)
 {
     debug_log("Launching Application...\r\n");
 
@@ -78,7 +78,7 @@ void jump_to_application(void)
     while (1);
 }
 
-void enter_bootloader_mode(void) 
+void enter_bootloader_mode(void)
 {
     init_led();
 
@@ -88,12 +88,12 @@ void enter_bootloader_mode(void)
 
     static uint32_t last_blink = 0;
     static bool led_state = false;
-    
+
     while(1) {
         if ((HAL_GetTick() - last_blink) > 100) {
             led_state = !led_state;
-            set_led_1(led_state); 
-            set_led_2(!led_state); 
+            set_led_1(led_state);
+            set_led_2(!led_state);
             last_blink = HAL_GetTick();
         }
         HAL_Delay(10);

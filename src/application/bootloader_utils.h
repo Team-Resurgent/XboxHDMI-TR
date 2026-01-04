@@ -11,4 +11,3 @@ void bootloader_request(void);
 
 // Check if bootloader is active (for application code)
 uint8_t bootloader_is_active(void);
-

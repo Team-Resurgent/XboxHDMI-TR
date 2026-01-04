@@ -13,4 +13,3 @@ void bootloader_request(void) {
 uint8_t bootloader_is_active(void) {
     return (*BOOTLOADER_FLAG_ADDRESS == BOOTLOADER_MAGIC_VALUE);
 }
-

@@ -72,4 +72,4 @@
 #define SMBUS_SMS_RESPONSE_READY ((uint32_t)0x00000010)  /*!< Slave has reply ready for transmission */
 #define SMBUS_SMS_IGNORED        ((uint32_t)0x00000020)  /*!< The current command is not intended for this slave, ignore it */
 
-#define RAM_BUGFFER_SIZE 1024
+#define RAM_BUFFER_SIZE 1024

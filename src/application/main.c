@@ -40,18 +40,18 @@ uint8_t get_vic_from_video_mode(const VideoMode * const vm, const bool widescree
 void SystemClock_Config(void);
 static void init_gpio(void);
 
-int main(void) 
+int main(void)
 {
     __enable_irq();
 
-    HAL_Init();    
+    HAL_Init();
     SystemClock_Config();
 
     debug_init();
     debug_log("Entering Application...\r\n");
 
     init_led();
-    init_gpio();    
+    init_gpio();
     init_adv();
     smbus_i2c_init();
 

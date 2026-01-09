@@ -9,7 +9,7 @@
 #include "../shared/debug.h"
 #include "../shared/led.h"
 #include "xbox_video_bios.h"
-#include "xbox_video_standalone.h"
+#include "../shared/xbox_video_standalone.h"
 #include "../shared/error_handler.h"
 
 adv7511 encoder;

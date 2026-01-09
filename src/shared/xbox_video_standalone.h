@@ -2,7 +2,7 @@
 #define __XBOX_VIDEO_STANDALONE_H__
 
 #include <stdint.h>
-#include "adv7511.h"
+#include "adv7511_vic.h"
 
 #pragma pack(1)
 typedef struct video_setting {
@@ -46,4 +46,4 @@ const video_setting_vic video_settings_xcalibur[] = {
     {185, 22, 1920, 540, VIC_05_1080i_60_16_9}
 };
 
-#endif // __XBOX_VIDEO_VIC_H__
+#endif // __XBOX_VIDEO_STANDALONE_H__

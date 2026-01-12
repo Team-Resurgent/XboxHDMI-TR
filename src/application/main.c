@@ -6,12 +6,14 @@
 #include "adv7511_i2c.h"
 #include "smbus_i2c.h"
 #include "../shared/adv7511_minimal.h"
+#include "../shared/adv7511_xbox.h"
 #include "adv7511.h"
 #include "../shared/debug.h"
 #include "../shared/led.h"
 #include "xbox_video_bios.h"
 #include "../shared/xbox_video_standalone.h"
 #include "../shared/error_handler.h"
+#include "../shared/gpio.h"
 
 adv7511 encoder;
 
@@ -24,10 +26,6 @@ adv7511 encoder;
     xbox_encoder xb_encoder = ENCODER_CONEXANT;
 #endif
 
-void init_adv();
-void init_adv_encoder_specific();
-void adv_handle_interrupts();
-
 void bios_loop();
 
 void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video_region region);
@@ -35,7 +33,6 @@ void set_adv_video_mode_bios(const VideoMode video_mode, const bool widescreen, 
 uint8_t get_vic_from_video_mode(const VideoMode * const vm, const bool widescreen);
 
 void SystemClock_Config(void);
-static void init_gpio(void);
 
 int main(void)
 {
@@ -49,7 +46,16 @@ int main(void)
 
     init_led();
     init_gpio();
-    init_adv();
+
+    // EXTI interrupt init
+    HAL_NVIC_SetPriority(EXTI0_1_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(EXTI0_1_IRQn);
+
+    init_adv(&encoder, xb_encoder);
+
+    // Set up the color space correction for RGB signals, disabled by default
+    adv7511_apply_csc((uint8_t *)CscRgbToYuv601);
+
     smbus_i2c_init();
 
     while (true)
@@ -60,7 +66,7 @@ int main(void)
         bool pll_lock = (adv7511_read_register(0x9E) >> 4) & 0x01;
         set_led_1(pll_lock);
 
-        adv_handle_interrupts();
+        adv_handle_interrupts(&encoder);
 
         if (bios_took_over()) {
             set_led_2(true);
@@ -74,80 +80,6 @@ int main(void)
     }
 }
 
-inline void init_adv() {
-    adv7511_i2c_init();
-
-    // Initialise the encoder object
-    adv7511_struct_init(&encoder);
-
-    // [7:6] HPD Control (forced to high)
-    // [5] Fixed 0
-    // [4] TMDS Clock soft turn on
-    // [3:1] Fixed 000
-    // [0] AV gating off
-    adv7511_write_register(0xD6, 0b11010000);
-
-    // Power up the encoder and set fixed registers
-    adv7511_power_up(&encoder);
-    HAL_Delay(50);
-
-    // [3:0] Set video input mode to RGB/YCbCr 4:4:4, 12bit databus DDR
-    // [7:4] Audio to 48kHz
-    adv7511_write_register(0x15, 0b00100101);
-
-    // [7] Output Format 4:4:4
-    // [5:4] 8 bit video
-    // [3:2] video style 1 (Y[3:0] Cb[7:0] first edge, Cr[7:0] Y[7:4] second edge)
-    // [1] Set DDR Input Rising Edge
-    // [0] YCbCr
-    adv7511_write_register(0x16, 0b00111011);
-
-    update_avi_infoframe(false);
-
-    // Setup xbox encoder specific stuff (Xcalibur uses different settings)
-    init_adv_encoder_specific();
-
-    // [0] Enable DE generation. This is derived from HSYNC,VSYNC for video active framing
-    adv7511_update_register(0x17, 0b00000001, 0b00000001);
-
-    // Set Output to HDMI Mode (Instead of DVI Mode)
-    // [7] HDCP Disabled
-    // [6:5] Must be set to default value 00
-    // [4] Frame encryption
-    // [3:2] Must be set to default value 01
-    // [1] HDMI/DVI
-    // [0] Must be set to default 0
-    adv7511_write_register(0xAF, 0b00000110);
-
-    // [7] Enable General Control Packet CHECK
-    adv7511_update_register(0x40, 0b10000000, 0b10000000);
-
-    init_adv_audio();
-
-    // Set up the color space correction for RGB signals, disabled by default
-    adv7511_apply_csc((uint8_t *)CscRgbToYuv601);
-}
-
-void init_adv_encoder_specific() {
-    if (xb_encoder == ENCODER_XCALIBUR) {
-        // [6] Normal Bus Order, [5] DDR Alignment D[35:18] (left aligned)
-        adv7511_update_register(0x48, 0b01100000, 0b00100000);
-        // [7] Disable DDR Negative Edge CLK Delay, [6:4] with 0ps delay
-        // [3:2] No sync pulse, [1] Data enable, then sync, [0] Fixed
-        adv7511_write_register(0xD0, 0b00111110);
-        // [7:5] -0.4ns clock delay
-        adv7511_update_register(0xBA, 0b11100000, 0b01000000);
-    } else {
-        // [6] LSB .... MSB Reverse Bus Order, [5] DDR Alignment D[17:0] (right aligned)
-        adv7511_update_register(0x48, 0b01100000, 0b01000000);
-        // [7] Enable DDR Negative Edge CLK Delay, [6:4] with 0ps delay
-        // [3:2] No sync pulse, [1] Data enable, then sync, [0] Fixed
-        adv7511_write_register(0xD0, 0b10111110);
-        // [7:5] No clock delay
-        adv7511_update_register(0xBA, 0b11100000, 0b01100000);
-    }
-}
-
 inline void bios_loop() {
     static uint32_t current_mode = 0;
     static uint32_t current_avinfo = 0;
@@ -157,7 +89,7 @@ inline void bios_loop() {
         // Detect the encoder, if it changed reinit encoder specific values
         if (xb_encoder != vid_settings->encoder) {
             xb_encoder = vid_settings->encoder;
-            init_adv_encoder_specific();
+            init_adv_encoder_specific(xb_encoder);
         }
 
         const uint32_t mode = vid_settings->mode;
@@ -174,30 +106,6 @@ inline void bios_loop() {
         }
 
         ack_video_mode_update();
-    }
-}
-
-void adv_handle_interrupts() {
-    if (encoder.interrupt) {
-        uint8_t interrupt_register = adv7511_read_register(0x96);
-
-        if (interrupt_register & ADV7511_INT0_HPD) {
-            // debug_log("HPD interrupt\r\n");
-            encoder.hot_plug_detect = (adv7511_read_register(0x42) >> 6) & 0x01;
-        }
-
-        if (interrupt_register & ADV7511_INT0_MONITOR_SENSE) {
-            // debug_log("Monitor Sense Interrupt\r\n");
-            encoder.monitor_sense = (adv7511_read_register(0x42) >> 5) & 0x01;
-        }
-
-        if (encoder.hot_plug_detect && encoder.monitor_sense) {
-            adv7511_power_up(&encoder);
-        }
-
-        encoder.interrupt = 0;
-        // Re-enable interrupts
-        adv7511_update_register(0x96, 0b11000000, 0xC0);
     }
 }
 
@@ -315,18 +223,4 @@ uint8_t get_vic_from_video_mode(const VideoMode * const vm, const bool widescree
         break;
     }
     return vic;
-}
-
-// TODO split this out
-static void init_gpio(void) {
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-    GPIO_InitStruct.Pin = GPIO_PIN_7;
-    GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
-
-    // EXTI interrupt init
-    HAL_NVIC_SetPriority(EXTI0_1_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(EXTI0_1_IRQn);
 }

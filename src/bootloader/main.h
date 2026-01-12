@@ -10,6 +10,3 @@
 static bool can_launch_application(void);
 static void jump_to_application(void);
 static void enter_bootloader_mode(void);
-
-static void setup_recovery_gpio();
-static bool recovery_jumper_enabled();

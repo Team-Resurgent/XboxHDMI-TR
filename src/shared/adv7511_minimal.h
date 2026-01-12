@@ -7,6 +7,11 @@
 #include "stm32.h"
 #include "stdbool.h"
 
+#define BIT(nr) (1UL << (nr))
+
+#define ADV7511_INT0_HPD BIT(7)
+#define ADV7511_INT0_MONITOR_SENSE BIT(6)
+
 #define ADV7511_VIC_CHANGED         0x80
 #define ADV7511_VIC_CHANGED_CLEAR   0x7F
 
@@ -27,9 +32,6 @@ uint8_t adv7511_read_register(const uint8_t address);
 void adv7511_write_register(const uint8_t address, uint8_t value);
 void adv7511_struct_init(adv7511 *encoder);
 
-// New stuff
-void update_avi_infoframe(const bool widescreen);
-
-void init_adv_audio();
+void adv_handle_interrupts(adv7511 *encoder);
 
 #endif // __ADV7511_MINIMAL_H__

@@ -7,9 +7,22 @@
 #include <string.h>
 #include "../shared/debug.h"
 #include "../shared/error_handler.h"
+#include "../shared/xbox_video_standalone.h"
+#include "../shared/gpio.h"
 
 extern void SystemClock_Config(void);
 volatile uint8_t bootloader_running = 0;
+
+adv7511 encoder;
+
+// Allow user to force any of the 3 encoders, only required for vic mode
+#ifdef BUILD_XCALIBUR
+    xbox_encoder xb_encoder = ENCODER_XCALIBUR;
+#elif BUILD_FOCUS
+    xbox_encoder xb_encoder = ENCODER_FOCUS;
+#else
+    xbox_encoder xb_encoder = ENCODER_CONEXANT;
+#endif
 
 int main(void)
 {
@@ -17,7 +30,7 @@ int main(void)
 
     HAL_Init();
     SystemClock_Config();
-    setup_recovery_gpio();
+    init_gpio();
 
     debug_init();
     debug_log("Entering Bootloader...\r\n");
@@ -85,6 +98,8 @@ void enter_bootloader_mode(void)
     debug_log("Waiting for update...\r\n");
 
     smbus_i2c_init();
+    init_gpio();
+    init_adv(&encoder, xb_encoder);
 
     static uint32_t last_blink = 0;
     static bool led_state = false;
@@ -97,19 +112,9 @@ void enter_bootloader_mode(void)
             last_blink = HAL_GetTick();
         }
         HAL_Delay(10);
+
+        // ADV handling for VIC mode for emergency
+        adv_handle_interrupts(&encoder);
+        stand_alone_loop(&encoder, xb_encoder);
     }
-}
-
-void setup_recovery_gpio() {
-    __HAL_RCC_GPIOC_CLK_ENABLE();
-
-    GPIO_InitTypeDef gpio;
-    gpio.Pin = GPIO_PIN_15;
-    gpio.Mode = GPIO_MODE_INPUT;
-    gpio.Pull = GPIO_PULLUP;
-    HAL_GPIO_Init(GPIOC, &gpio);
-}
-
-bool recovery_jumper_enabled() {
-    return !HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_15);
 }

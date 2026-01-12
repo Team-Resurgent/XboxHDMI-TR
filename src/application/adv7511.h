@@ -4,11 +4,6 @@
 #ifndef __ADV7511_H__
 #define __ADV7511_H__
 
-#define BIT(nr) (1UL << (nr))
-
-#define ADV7511_INT0_HPD BIT(7)
-#define ADV7511_INT0_MONITOR_SENSE BIT(6)
-
 /* Hardware defined default addresses for I2C register maps */
 #define ADV7511_CEC_I2C_ADDR_DEFAULT    0x78 //0x78>>1
 #define ADV7511_EDID_I2C_ADDR_DEFAULT   0x7E //0x7E>>1

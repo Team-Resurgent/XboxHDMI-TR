@@ -41,28 +41,24 @@ void adv7511_power_up(adv7511 *encoder) {
     HAL_Delay(20);
 }
 
-// New stuff
-void update_avi_infoframe(const bool widescreen) {
-    // [6] Start AVI Infoframe Update
-    adv7511_update_register(0x4A, 0b01000000, 0b01000000);
-    // [6:5] Infoframe output format to YCbCr4:4:4
-    adv7511_update_register(0x55, 0b01100000, 0b01000000);
-    // [5:4] Set aspect ratio
-    // [3:0] Active format aspect ratio, same as aspect ratio
-    adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);
-    // [6] End AVI Infoframe Update
-    adv7511_update_register(0x4A, 0b01000000, 0b00000000);
-}
+void adv_handle_interrupts(adv7511 *encoder) {
+    if (encoder->interrupt) {
+        uint8_t interrupt_register = adv7511_read_register(0x96);
 
-void init_adv_audio() {
-    // [19:0] Set 48kHz Audio clock CHECK (N Value)
-    adv7511_write_register(0x01, 0x00);
-    adv7511_write_register(0x02, 0x18);
-    adv7511_write_register(0x03, 0x00);
+        if (interrupt_register & ADV7511_INT0_HPD) {
+            encoder->hot_plug_detect = (adv7511_read_register(0x42) >> 6) & 0x01;
+        }
 
-    // [6:4] Set SPDIF audio source
-    adv7511_update_register(0x0A, 0b01110000, 0b00010000);
+        if (interrupt_register & ADV7511_INT0_MONITOR_SENSE) {
+            encoder->monitor_sense = (adv7511_read_register(0x42) >> 5) & 0x01;
+        }
 
-    // [7] SPDIF enable
-    adv7511_update_register(0x0B, 0b10000000, 0b10000000);
+        if (encoder->hot_plug_detect && encoder->monitor_sense) {
+            adv7511_power_up(&encoder);
+        }
+
+        encoder->interrupt = 0;
+        // Re-enable interrupts
+        adv7511_update_register(0x96, 0b11000000, 0xC0);
+    }
 }

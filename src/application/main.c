@@ -26,14 +26,10 @@ adv7511 encoder;
 
 void init_adv();
 void init_adv_encoder_specific();
-void init_adv_audio();
 void adv_handle_interrupts();
 
 void bios_loop();
-void stand_alone_loop();
 
-void update_avi_infoframe(const bool widescreen);
-void set_video_mode_vic(const uint8_t mode, const bool wide, const bool interlaced);
 void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video_region region);
 void set_adv_video_mode_bios(const VideoMode video_mode, const bool widescreen, const bool rgb);
 uint8_t get_vic_from_video_mode(const VideoMode * const vm, const bool widescreen);
@@ -73,7 +69,7 @@ int main(void)
         else
         {
             set_led_2(false);
-            stand_alone_loop();
+            stand_alone_loop(&encoder, xb_encoder);
         }
     }
 }
@@ -152,19 +148,6 @@ void init_adv_encoder_specific() {
     }
 }
 
-inline void init_adv_audio() {
-    // [19:0] Set 48kHz Audio clock CHECK (N Value)
-    adv7511_write_register(0x01, 0x00);
-    adv7511_write_register(0x02, 0x18);
-    adv7511_write_register(0x03, 0x00);
-
-    // [6:4] Set SPDIF audio source
-    adv7511_update_register(0x0A, 0b01110000, 0b00010000);
-
-    // [7] SPDIF enable
-    adv7511_update_register(0x0B, 0b10000000, 0b10000000);
-}
-
 inline void bios_loop() {
     static uint32_t current_mode = 0;
     static uint32_t current_avinfo = 0;
@@ -194,34 +177,6 @@ inline void bios_loop() {
     }
 }
 
-inline void stand_alone_loop() {
-    if ((adv7511_read_register(0x3e) >> 2) != (encoder.vic & 0x0F)) {
-        // Set MSB to 1. This indicates a recent change.
-        encoder.vic = ADV7511_VIC_CHANGED | adv7511_read_register(0x3e) >> 2;
-        debug_log("Detected VIC#: 0x%02x\r\n", encoder.vic & ADV7511_VIC_CHANGED_CLEAR);
-    }
-
-    if (encoder.vic & ADV7511_VIC_CHANGED) {
-        encoder.vic &= ADV7511_VIC_CHANGED_CLEAR;
-
-        if (encoder.vic == VIC_01_VGA_640x480_4_3) {
-            set_video_mode_vic(XBOX_VIDEO_VGA, false, false);
-        }
-        else if (encoder.vic == VIC_02_480p_60__4_3 || encoder.vic == VIC_00_VIC_Unavailable) {
-            set_video_mode_vic(XBOX_VIDEO_480p_640, false, false);
-        }
-        else if (encoder.vic == VIC_03_480p_60_16_9) {
-            set_video_mode_vic(XBOX_VIDEO_480p_720, true, false);
-        }
-        else if (encoder.vic == VIC_04_720p_60_16_9) {
-            set_video_mode_vic(XBOX_VIDEO_720p, true, false);
-        }
-        else if (encoder.vic == VIC_05_1080i_60_16_9) {
-            set_video_mode_vic(XBOX_VIDEO_1080i, true, true);
-        }
-    }
-}
-
 void adv_handle_interrupts() {
     if (encoder.interrupt) {
         uint8_t interrupt_register = adv7511_read_register(0x96);
@@ -244,80 +199,6 @@ void adv_handle_interrupts() {
         // Re-enable interrupts
         adv7511_update_register(0x96, 0b11000000, 0xC0);
     }
-}
-
-void update_avi_infoframe(const bool widescreen) {
-    // [6] Start AVI Infoframe Update
-    adv7511_update_register(0x4A, 0b01000000, 0b01000000);
-    // [6:5] Infoframe output format to YCbCr4:4:4
-    adv7511_update_register(0x55, 0b01100000, 0b01000000);
-    // [5:4] Set aspect ratio
-    // [3:0] Active format aspect ratio, same as aspect ratio
-    adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);
-    // [6] End AVI Infoframe Update
-    adv7511_update_register(0x4A, 0b01000000, 0b00000000);
-}
-
-void set_video_mode_vic(const uint8_t mode, const bool widescreen, const bool interlaced) {
-    if (mode > XBOX_VIDEO_1080i) {
-        debug_log("Invalid video mode for VIC\r\n");
-        return;
-    }
-
-    const video_setting_vic* vs = NULL;
-    switch (xb_encoder) {
-        case ENCODER_CONEXANT:
-            vs = &video_settings_conexant[mode];
-            break;
-
-        case ENCODER_FOCUS:
-            vs = &video_settings_focus[mode];
-            break;
-
-        case ENCODER_XCALIBUR:
-            vs = &video_settings_xcalibur[mode];
-            break;
-
-        default:
-            debug_log("Invalid encoder in set_video_mode_vic\r\n");
-            return;
-    }
-
-    debug_log("Set %d mode, widescreen %s, interlaced %s\r\n", mode, widescreen ? "true" : "false", interlaced ? "true" : "false");
-
-    // Make sure CSC is off
-    adv7511_update_register(0x18, 0b10000000, 0b00000000);
-
-    adv7511_write_register(0x35, (uint8_t)(vs->delay_hs >> 2));
-    adv7511_write_register(0x36, ((0b00111111 & (uint8_t)vs->delay_vs)) | (0b11000000 & (uint8_t)(vs->delay_hs << 6)));
-    adv7511_update_register(0x37, 0b00011111, (uint8_t)(vs->active_w >> 7)); // 0x37 is shared with interlaced
-    adv7511_write_register(0x38, (uint8_t)(vs->active_w << 1));
-    adv7511_write_register(0x39, (uint8_t)(vs->active_h >> 4));
-    adv7511_write_register(0x3A, (uint8_t)(vs->active_h << 4));
-
-    update_avi_infoframe(widescreen);
-
-    // For VIC mode
-    if (interlaced) {
-        // Interlace Offset For DE Generation
-        adv7511_update_register(0x37, 0b11100000, 0b00000000);
-        // Offset for Sync Adjustment Vsync Placement
-        adv7511_write_register(0xDC, 0b00000000);
-        // Enable settings
-        adv7511_update_register(0x41, 0b00000010, 0b00000010);
-    } else {
-        // Disable manual sync
-        adv7511_update_register(0x41, 0b00000010, 0b00000000);
-    }
-
-    // Fixes jumping for 1080i, somehow doing this in the init sequence doesnt stick or gets reset
-    adv7511_update_register(0xD0, 0b00000010, 0b00000010);
-
-    // Set the vic from the table
-    adv7511_write_register(0x3C, vs->vic);
-
-    debug_log("Actual Pixel Repetition : 0x%02x\r\n", (adv7511_read_register(0x3D) & 0xC0) >> 6);
-    debug_log("Actual VIC Sent : 0x%02x\r\n", adv7511_read_register(0x3D) & 0x1F);
 }
 
 void set_video_mode_bios(const uint32_t mode, const uint32_t avinfo, const video_region region) {

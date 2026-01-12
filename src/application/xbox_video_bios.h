@@ -3,12 +3,6 @@
 
 #include <stdint.h>
 
-typedef enum xbox_encoder {
-    ENCODER_CONEXANT = 0x8A,
-    ENCODER_FOCUS    = 0xD4,
-    ENCODER_XCALIBUR = 0xE0
-} xbox_encoder;
-
 typedef enum {
     VIDEO_REGION_NTSCM = 0x00000100,
     VIDEO_REGION_NTSCJ = 0x00000200,

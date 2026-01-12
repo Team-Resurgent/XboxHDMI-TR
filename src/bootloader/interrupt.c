@@ -65,8 +65,7 @@ void EXTI0_1_IRQHandler(void)
 // // Define this in your bootloader code if using I2C2
 // extern I2C_HandleTypeDef *bootloader_hi2c2;
 
-void I2C2_IRQHandler(void)
-{
+void I2C2_IRQHandler(void) {
     // Otherwise, forward to application
     volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
     uint32_t app_i2c2_addr = app_vector_table[40];
@@ -75,12 +74,9 @@ void I2C2_IRQHandler(void)
         void (*app_i2c2_handler)(void) = (void (*)(void))app_i2c2_addr;
         app_i2c2_handler();
     } else {
-        if (hi2c2.Instance->ISR & (I2C_FLAG_BERR | I2C_FLAG_ARLO | I2C_FLAG_OVR | I2C_FLAG_TIMEOUT | I2C_FLAG_ALERT | I2C_FLAG_PECERR))
-        {
+        if (hi2c2.Instance->ISR & (I2C_FLAG_BERR | I2C_FLAG_ARLO | I2C_FLAG_OVR | I2C_FLAG_TIMEOUT | I2C_FLAG_ALERT | I2C_FLAG_PECERR)) {
             HAL_I2C_ER_IRQHandler(&hi2c2);
-        }
-        else
-        {
+        } else {
             HAL_I2C_EV_IRQHandler(&hi2c2);
         }
     }

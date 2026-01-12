@@ -23,8 +23,7 @@ int main(void)
     debug_log("Entering Bootloader...\r\n");
 
     uint32_t flag_value = *BOOTLOADER_FLAG_ADDRESS;
-    if (flag_value != BOOTLOADER_MAGIC_VALUE && can_launch_application() && !recovery_jumper_enabled())
-    {
+    if (flag_value != BOOTLOADER_MAGIC_VALUE && can_launch_application() && !recovery_jumper_enabled()) {
         jump_to_application();
     }
     *BOOTLOADER_FLAG_ADDRESS = 0;

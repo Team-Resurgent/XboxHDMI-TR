@@ -40,3 +40,29 @@ void adv7511_power_up(adv7511 *encoder) {
     adv7511_write_register(0x41, 0x10);
     HAL_Delay(20);
 }
+
+// New stuff
+void update_avi_infoframe(const bool widescreen) {
+    // [6] Start AVI Infoframe Update
+    adv7511_update_register(0x4A, 0b01000000, 0b01000000);
+    // [6:5] Infoframe output format to YCbCr4:4:4
+    adv7511_update_register(0x55, 0b01100000, 0b01000000);
+    // [5:4] Set aspect ratio
+    // [3:0] Active format aspect ratio, same as aspect ratio
+    adv7511_write_register(0x56, widescreen ? 0b00101000 : 0b00011000);
+    // [6] End AVI Infoframe Update
+    adv7511_update_register(0x4A, 0b01000000, 0b00000000);
+}
+
+void init_adv_audio() {
+    // [19:0] Set 48kHz Audio clock CHECK (N Value)
+    adv7511_write_register(0x01, 0x00);
+    adv7511_write_register(0x02, 0x18);
+    adv7511_write_register(0x03, 0x00);
+
+    // [6:4] Set SPDIF audio source
+    adv7511_update_register(0x0A, 0b01110000, 0b00010000);
+
+    // [7] SPDIF enable
+    adv7511_update_register(0x0B, 0b10000000, 0b10000000);
+}

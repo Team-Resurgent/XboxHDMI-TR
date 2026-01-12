@@ -5,6 +5,7 @@
 #define __ADV7511_MINIMAL_H__
 
 #include "stm32.h"
+#include "stdbool.h"
 
 #define ADV7511_VIC_CHANGED         0x80
 #define ADV7511_VIC_CHANGED_CLEAR   0x7F
@@ -25,5 +26,10 @@ void adv7511_update_register(const uint8_t address, const uint8_t mask, uint8_t 
 uint8_t adv7511_read_register(const uint8_t address);
 void adv7511_write_register(const uint8_t address, uint8_t value);
 void adv7511_struct_init(adv7511 *encoder);
+
+// New stuff
+void update_avi_infoframe(const bool widescreen);
+
+void init_adv_audio();
 
 #endif // __ADV7511_MINIMAL_H__

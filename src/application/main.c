@@ -5,6 +5,7 @@
 #include "stm32f0xx_hal.h"
 #include "adv7511_i2c.h"
 #include "smbus_i2c.h"
+#include "../shared/adv7511_minimal.h"
 #include "adv7511.h"
 #include "../shared/debug.h"
 #include "../shared/led.h"

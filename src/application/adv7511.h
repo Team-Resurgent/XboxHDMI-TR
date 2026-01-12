@@ -4,23 +4,22 @@
 #ifndef __ADV7511_H__
 #define __ADV7511_H__
 
-#include "stm32.h"
-
-#include <stdbool.h>
-
 #define BIT(nr) (1UL << (nr))
 
 #define ADV7511_INT0_HPD BIT(7)
 #define ADV7511_INT0_MONITOR_SENSE BIT(6)
 
-#define ADV7511_VIC_CHANGED         0x80
-#define ADV7511_VIC_CHANGED_CLEAR   0x7F
-
 /* Hardware defined default addresses for I2C register maps */
-#define ADV7511_MAIN_I2C_ADDR           0x72 //0x72>>1
 #define ADV7511_CEC_I2C_ADDR_DEFAULT    0x78 //0x78>>1
 #define ADV7511_EDID_I2C_ADDR_DEFAULT   0x7E //0x7E>>1
 #define ADV7511_PACKET_I2C_ADDR_DEFAULT 0x70 //0x70>>1
+
+enum adv7511_sync_polarity
+{
+    ADV7511_SYNC_POLARITY_PASSTHROUGH,
+    ADV7511_SYNC_POLARITY_LOW,
+    ADV7511_SYNC_POLARITY_HIGH,
+};
 
 static const uint8_t identityMatrix[] = {
     0xA8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -157,29 +156,11 @@ static const uint8_t CscYcc601LRtoYcc709FR[] = {
     0x1E, 0x0E, 0x09, 0x5A, 0x1E, 0xEC, 0x00, 0xED,
     0x01, 0x0B, 0x00, 0x00, 0x09, 0x46, 0x1E, 0xD7};
 
-enum adv7511_sync_polarity
-{
-    ADV7511_SYNC_POLARITY_PASSTHROUGH,
-    ADV7511_SYNC_POLARITY_LOW,
-    ADV7511_SYNC_POLARITY_HIGH,
-};
-
-typedef struct
-{
-    uint8_t hot_plug_detect;
-    uint8_t monitor_sense;
-    uint8_t interrupt;
-    uint8_t vic;
-} adv7511;
-
-void adv7511_power_up(adv7511 *encoder);
-void adv7511_update_register(const uint8_t address, const uint8_t mask, uint8_t new_value);
-uint8_t adv7511_read_register(const uint8_t address);
-void adv7511_write_register(const uint8_t address, uint8_t value);
 void adv7511_write_cec(const uint8_t address, uint8_t value);
-void adv7511_struct_init(adv7511 *encoder);
+
 void adv7511_apply_csc(const uint8_t * const coefficients);
 
+// New stuff
 void adv7511_disable_video();
 void adv7511_enable_video();
 void adv7511_power_down_tmds();

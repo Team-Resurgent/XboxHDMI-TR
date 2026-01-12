@@ -1,5 +1,5 @@
 #include "stm32f0xx_hal.h"
-#include "adv7511.h"
+#include "../shared/adv7511_minimal.h"
 #include "../shared/debug.h"
 
 void SysTick_Handler(void)

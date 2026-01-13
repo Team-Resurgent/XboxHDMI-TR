@@ -5,12 +5,7 @@
 #include <stdbool.h>
 #include "adv7511_minimal.h"
 #include "adv7511_vic.h"
-
-typedef enum xbox_encoder {
-    ENCODER_CONEXANT = 0x8A,
-    ENCODER_FOCUS    = 0xD4,
-    ENCODER_XCALIBUR = 0xE0
-} xbox_encoder;
+#include "types.h"
 
 #pragma pack(1)
 typedef struct video_setting {

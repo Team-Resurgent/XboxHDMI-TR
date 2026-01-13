@@ -2,6 +2,7 @@
 #define __XBOX_VIDEO_BIOS_H__
 
 #include <stdint.h>
+#include "../shared/types.h"
 
 typedef enum {
     VIDEO_REGION_NTSCM = 0x00000100,
@@ -100,5 +101,8 @@ static const VideoMode FOCUS_TABLE[] = {
     {119, 36,  720,  480,  17, 63,  8,  6, 0}, // 11 640x480_FPAR_480P       OK, Pillar boxed
     {143, 26,  640,  576,  79, 64, 22,  2, 0}  // 12 640x576_FPAR_PAL_RGB    OK
 };
+
+void bios_init();
+void bios_loop(xbox_encoder * xb_encoder);
 
 #endif // __XBOX_VIDEO_BIOS_H__

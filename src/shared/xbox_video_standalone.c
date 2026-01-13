@@ -2,6 +2,7 @@
 
 #include "xbox_video_standalone.h"
 #include "adv7511_minimal.h"
+#include "adv7511_xbox.h"
 #include "debug.h"
 
 const video_setting_vic video_settings_conexant[] = {

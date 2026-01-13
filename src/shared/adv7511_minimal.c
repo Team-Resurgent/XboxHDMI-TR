@@ -54,7 +54,7 @@ void adv_handle_interrupts(adv7511 *encoder) {
         }
 
         if (encoder->hot_plug_detect && encoder->monitor_sense) {
-            adv7511_power_up(&encoder);
+            adv7511_power_up(encoder);
         }
 
         encoder->interrupt = 0;

@@ -1,14 +1,14 @@
 #include "main.h"
 #include "stm32f0xx_hal.h"
 #include "stm32f0xx.h"
-#include "smbus_i2c.h"
-#include "../shared/defines.h"
-#include "../shared/led.h"
 #include <string.h>
+#include "../shared/adv7511_xbox.h"
+#include "../shared/defines.h"
 #include "../shared/debug.h"
 #include "../shared/error_handler.h"
 #include "../shared/xbox_video_standalone.h"
 #include "../shared/gpio.h"
+#include "smbus_i2c.h"
 
 extern void SystemClock_Config(void);
 volatile uint8_t bootloader_running = 0;
@@ -93,8 +93,6 @@ void jump_to_application(void)
 
 void enter_bootloader_mode(void)
 {
-    init_led();
-
     debug_log("Waiting for update...\r\n");
 
     smbus_i2c_init();

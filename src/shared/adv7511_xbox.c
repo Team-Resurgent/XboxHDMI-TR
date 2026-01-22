@@ -55,11 +55,11 @@ void init_adv_encoder_specific(const xbox_encoder xb_encoder) {
     if (xb_encoder == ENCODER_XCALIBUR) {
         // [6] Normal Bus Order, [5] DDR Alignment D[35:18] (left aligned)
         adv7511_update_register(0x48, 0b01100000, 0b00100000);
-        // [7] Disable DDR Negative Edge CLK Delay, [6:4] with 0ps delay
+        // [7] Disable DDR Negative Edge CLK Delay, [6:4] with -400ps delay
         // [3:2] No sync pulse, [1] Data enable, then sync, [0] Fixed
-        adv7511_write_register(0xD0, 0b00111110);
-        // [7:5] -0.4ns clock delay
-        adv7511_update_register(0xBA, 0b11100000, 0b01000000);
+        adv7511_write_register(0xD0, 0b00101110);
+        // [7:5] -0.8ns clock delay
+        adv7511_update_register(0xBA, 0b11100000, 0b00100000);
     } else {
         // [6] LSB .... MSB Reverse Bus Order, [5] DDR Alignment D[17:0] (right aligned)
         adv7511_update_register(0x48, 0b01100000, 0b01000000);

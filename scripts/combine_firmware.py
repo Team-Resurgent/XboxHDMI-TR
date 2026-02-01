@@ -7,8 +7,8 @@ Builds bootloader and application, then combines them into a single binary.
 
 print("DEBUG: combine_firmware.py script loaded")
 
-# Bootloader size in bytes (16KB)
-BOOTLOADER_SIZE = 16 * 1024  # 16384 bytes
+# Bootloader size in bytes (20KB)
+BOOTLOADER_SIZE = 20 * 1024  # 16384 bytes
 PADDING_VALUE = 0xFF  # Typical flash erase value
 
 def build_and_combine(target, source, env):

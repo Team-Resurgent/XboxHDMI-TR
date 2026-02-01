@@ -11,10 +11,10 @@
 #define FLASH_PAGE_SHIFT        10
 
 #define BOOTLOADER_MAGIC_VALUE      0xDEADBEEF
-#define BOOTLOADER_FLAG_ADDRESS    ((volatile uint32_t*)(RAM_START_ADDRESS + 0xF0))
+#define BOOTLOADER_FLAG_ADDRESS    ((volatile uint32_t*)(RAM_START_ADDRESS + 0x1F00))
 
-// Bootloader and application addresses (16KB bootloader)
-#define BOOTLOADER_SIZE         0x4000  // 16KB
+// Bootloader and application addresses (20KB bootloader)
+#define BOOTLOADER_SIZE         0x5000  // 20KB
 #define APP_START_ADDRESS       (FLASH_START_ADDRESS + BOOTLOADER_SIZE)
 #define APP_TOTAL_SIZE          (FLASH_START_ADDRESS +  FLASH_TOTAL_SIZE - BOOTLOADER_SIZE)
 

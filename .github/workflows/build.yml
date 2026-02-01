@@ -12,7 +12,7 @@ jobs:
       matrix:
         variant:
           - env: combined_stm32f0
-            name: connexant
+            name: conexant
             defines: "-DBUILD_CONEXANT"
           - env: combined_stm32f0
             name: focus
@@ -97,6 +97,7 @@ jobs:
         draft: false
         files: |
           release-artifacts/*
+
 
 
 

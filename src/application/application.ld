@@ -150,6 +150,16 @@ SECTIONS
   /* used by the startup to initialize data */
   _sidata = LOADADDR(.data);
 
+  /* First 256 bytes of RAM reserved for bootloader flag and shared data (not used by .data/.bss) */
+  .reserved_ram (NOLOAD) :
+  {
+    . = ALIGN(4);
+    _reserved_ram_start = .;
+    . = . + 0x100;
+    _reserved_ram_end = .;
+    . = ALIGN(4);
+  } >RAM
+
   /* Initialized data sections goes into RAM, load LMA copy after code */
   .data :
   {

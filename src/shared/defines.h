@@ -12,7 +12,7 @@
 
 #define BOOTLOADER_MAGIC_VALUE      0xDEADBEEF
 #define RAM_RESERVED_AT_START       0x100
-#define BOOTLOADER_FLAG_ADDRESS     ((volatile uint32_t*)(RAM_START_ADDRESS + RAM_TOTAL_SIZE - 4))
+#define BOOTLOADER_FLAG_ADDRESS     ((volatile uint32_t*)(RAM_START_ADDRESS + 0xf0))
 
 // Bootloader and application addresses (20KB bootloader)
 #define BOOTLOADER_SIZE         0x5000  // 20KB

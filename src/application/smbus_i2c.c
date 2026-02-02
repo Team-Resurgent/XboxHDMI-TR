@@ -378,10 +378,7 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                 }
                 case I2C_HDMI_COMMAND_WRITE_READ_PAGE:
                 {
-                    if (dataByte >= (BOOTLOADER_SIZE >> FLASH_PAGE_SHIFT) && dataByte < (FLASH_TOTAL_SIZE >> FLASH_PAGE_SHIFT))
-                    {
-                        ram_buffer_crc = flash_copy_page(dataByte, ram_buffer, RAM_BUFFER_SIZE);
-                    }
+                    ram_buffer_crc = flash_copy_page(dataByte, ram_buffer, RAM_BUFFER_SIZE);
                     break;
                 }
                 case I2C_HDMI_COMMAND_WRITE_RAM:
@@ -415,9 +412,10 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                 {
                     if (dataByte >= (BOOTLOADER_SIZE >> FLASH_PAGE_SHIFT) && dataByte < (FLASH_TOTAL_SIZE >> FLASH_PAGE_SHIFT))
                     {
-                        flash_erase_page(dataByte);
-                        flash_write_page(dataByte, ram_buffer, RAM_BUFFER_SIZE);
+                        return;
                     }
+                    flash_erase_page(dataByte);
+                    flash_write_page(dataByte, ram_buffer, RAM_BUFFER_SIZE);
                     break;
                 }
             }

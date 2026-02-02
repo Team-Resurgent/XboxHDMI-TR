@@ -175,31 +175,6 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
             // Read command - prepare response
             switch(commandByte)
             {
-                case I2C_HDMI_COMMAND_READ_VERSION1:
-                {
-                    responseByte = I2C_HDMI_VERSION1;
-                    break;
-                }
-                case I2C_HDMI_COMMAND_READ_VERSION2:
-                {
-                    responseByte = I2C_HDMI_VERSION2;
-                    break;
-                }
-                case I2C_HDMI_COMMAND_READ_VERSION3:
-                {
-                    responseByte = I2C_HDMI_VERSION3;
-                    break;
-                }
-                case I2C_HDMI_COMMAND_READ_VERSION4:
-                {
-                    responseByte = I2C_HDMI_VERSION4;
-                    break;
-                }
-                case I2C_HDMI_COMMAND_READ_MODE:
-                {
-                    responseByte = I2C_HDMI_MODE_BOOTLOADER;
-                    break;
-                }
                 case I2C_HDMI_COMMAND_READ_RAM:
                 {
                     uint16_t ram_buffer_offset = (ram_buffer_bank << 8) | ram_buffer_index;

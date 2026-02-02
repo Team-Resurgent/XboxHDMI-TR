@@ -155,7 +155,7 @@ SECTIONS
   {
     . = ALIGN(4);
     _reserved_ram_start = .;
-    . = . + 0x100;
+    . = . + 0x200;
     _reserved_ram_end = .;
     . = ALIGN(4);
   } >RAM

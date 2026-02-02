@@ -6,12 +6,12 @@
 
 #define RAM_START_ADDRESS       0x20000000
 #define RAM_TOTAL_SIZE          0x2000
+#define RAM_RESERVED_AT_START   0x200
 #define FLASH_START_ADDRESS     0x08000000
 #define FLASH_TOTAL_SIZE        0x10000
 #define FLASH_PAGE_SHIFT        10
 
 #define BOOTLOADER_MAGIC_VALUE      0xDEADBEEF
-#define RAM_RESERVED_AT_START       0x100
 #define BOOTLOADER_FLAG_ADDRESS     ((volatile uint32_t*)(RAM_START_ADDRESS + 0xf0))
 
 // Bootloader and application addresses (20KB bootloader)

@@ -3,6 +3,7 @@
 #include "stm32f0xx.h"
 #include <string.h>
 #include "../shared/adv7511_xbox.h"
+#include "../shared/crc32.h"
 #include "../shared/defines.h"
 #include "../shared/debug.h"
 #include "../shared/error_handler.h"
@@ -61,6 +62,13 @@ bool can_launch_application(void)
     }
 
     if (stack_pointer == 0xFFFFFFFF && app_entry == 0xFFFFFFFF) {
+        return false;
+    }
+
+    /* Verify application CRC32 footer (bundled by combine_firmware.py) */
+    uint32_t expected_crc = *(volatile uint32_t *)APP_CRC_FOOTER_ADDRESS;
+    uint32_t computed_crc = crc32_calc(APP_START_ADDRESS, APP_SIZE_BYTES - 4);
+    if (computed_crc != expected_crc) {
         return false;
     }
 

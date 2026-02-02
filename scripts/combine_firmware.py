@@ -3,13 +3,24 @@ Import("env")
 """
 Combined script for combined_stm32f0 environment.
 Builds bootloader and application, then combines them into a single binary.
+Appends a CRC32 footer to the app image so the bootloader can verify integrity before booting.
 """
 
 print("DEBUG: combine_firmware.py script loaded")
 
 # Bootloader size in bytes (20KB)
-BOOTLOADER_SIZE = 20 * 1024  # 16384 bytes
+BOOTLOADER_SIZE = 20 * 1024
+# App region size in bytes (44KB); last 4 bytes hold CRC32 of the preceding app image
+APP_SIZE_BYTES = 44 * 1024  # FLASH_TOTAL_SIZE - BOOTLOADER_SIZE
+APP_IMAGE_SIZE = APP_SIZE_BYTES - 4  # app binary + padding, before CRC footer
 PADDING_VALUE = 0xFF  # Typical flash erase value
+
+
+def crc32_app_footer(data):
+    """CRC32 matching shared/crc32.c: init 0xFFFFFFFF, final xor 0xFFFFFFFF."""
+    import binascii
+    crc = binascii.crc32(data, 0xFFFFFFFF) & 0xFFFFFFFF
+    return (crc ^ 0xFFFFFFFF) & 0xFFFFFFFF
 
 def build_and_combine(target, source, env):
     """Build bootloader and application, then combine them."""
@@ -124,6 +135,18 @@ def build_and_combine(target, source, env):
     
     application_size = len(application_data)
     print(f"Application size: {application_size} bytes")
+    
+    if application_size > APP_IMAGE_SIZE:
+        print(f"✗ Error: Application size ({application_size} bytes) exceeds app image size ({APP_IMAGE_SIZE} bytes)!")
+        sys.exit(1)
+    
+    # Pad application to APP_IMAGE_SIZE (excludes 4-byte CRC footer), then append CRC32
+    padding_size = APP_IMAGE_SIZE - application_size
+    if padding_size > 0:
+        application_data += bytes([PADDING_VALUE] * padding_size)
+    app_crc = crc32_app_footer(application_data)
+    application_data += app_crc.to_bytes(4, 'little')
+    print(f"App image + CRC footer: {len(application_data)} bytes (CRC32=0x{app_crc:08X})")
     
     # Combine binaries
     print(f"Combining binaries...")

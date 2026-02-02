@@ -17,7 +17,10 @@
 // Bootloader and application addresses (20KB bootloader)
 #define BOOTLOADER_SIZE         0x5000  // 20KB
 #define APP_START_ADDRESS       (FLASH_START_ADDRESS + BOOTLOADER_SIZE)
-#define APP_TOTAL_SIZE          (FLASH_START_ADDRESS +  FLASH_TOTAL_SIZE - BOOTLOADER_SIZE)
+#define APP_SIZE_BYTES          (FLASH_TOTAL_SIZE - BOOTLOADER_SIZE)  // 44KB
+#define APP_TOTAL_SIZE          (FLASH_START_ADDRESS + FLASH_TOTAL_SIZE - BOOTLOADER_SIZE)
+/* CRC32 of app image (APP_START to APP_START + APP_SIZE_BYTES - 4) stored in last 4 bytes of app region */
+#define APP_CRC_FOOTER_ADDRESS  (APP_START_ADDRESS + APP_SIZE_BYTES - 4)
 
 // ============================================================================
 // I2C

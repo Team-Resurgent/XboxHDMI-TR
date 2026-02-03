@@ -66,8 +66,17 @@ jobs:
         name: firmware-${{ matrix.variant.name }}
         path: artifacts/*
 
+  updater-xbe:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/upload-artifact@v4
+      with:
+        name: updater-xbe
+        path: updater/XHDUpdater.xbe
+
   release:
-    needs: build
+    needs: [build, updater-xbe]
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
 
@@ -87,16 +96,14 @@ jobs:
         prerelease: true
         name: Development Build
         body: Automated build from ${{ github.sha }}
-        files: |
-          release-artifacts/*
+        files: release-artifacts/*
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/tags/')
       with:
         draft: false
-        files: |
-          release-artifacts/*
+        files: release-artifacts/*
 
 
 

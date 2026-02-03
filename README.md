@@ -1,47 +1,40 @@
-## Based of Original Xbox 100% Digital HDMI (Prototype) by Ryzee119
+# XboxHDMI-TR
 
-This project aims to a open source alternate firmware for OXHD + MakeMHz's HD+
+Open-source alternate firmware for MakeMHz's HD+, based on the [Original Xbox 100% Digital HDMI (Prototype)](https://github.com/Ryzee119/XboxHDMI-Ryzee119) by Ryzee119.
 
-Based on...
+**Status:** Refactored to build for STM32F0 (HD+), Cerbios V3.1.0 recommended for improved video mode detection.
 
-https://github.com/Ryzee119/XboxHDMI-Ryzee119
+## Programming HD+
 
-Notes:
+Connect the following wires to program the HD+ (power from the Xbox motherboard is recommended; do not use the 3V3 pin below)...
 
-Ive started to refactor code to make stm32f0 (hd+) + stm32g0 (oxhd) both compilable from the same project, for now stm32f0 is confirmed working.
+| Pin Pair | Signal | Signal |
+|----------|--------|--------|
+| 2 – 1    | NC     | NRST   |
+| 4 – 3    | NC     | NC     |
+| 6 – 5    | GND    | NC     |
+| 8 – 7    | SWDIO  | SWCLK  |
 
-Ive now added support for Cerbios V3.1.0 which will greatly improve video mode detection.
+**Full pinout reference:**
 
-More details to come soon...
+| Pin Pair | Signal   | Signal |
+|----------|----------|--------|
+| 2 – 1    | 3V3      | NRST   |
+| 4 – 3    | OSC OUT  | TX     |
+| 6 – 5    | GND      | RX     |
+| 8 – 7    | SWDIO    | SWCLK  |
 
-EqUiNoX
+## Updating firmware with XHDUpdater.xbe (from v0.1.0)
 
-In order to program HD+ connect the following wires...
+1. Upload all files to your Xbox (e.g. via FTP): `firmware_conexant.bin`, `firmware_focus.bin`, `firmware_xcalibur.bin`, and `XHDUpdater.xbe`.
+2. Run the XBE on your Xbox and follow the on-screen prompts.
 
-| Pin Pair | Signal      | Signal      |
-|----------|-------------|-------------|
-| 2 – 1    | NC          | NRST        |
-| 4 – 3    | NC          | NC          |
-| 6 – 5    | GND         | NC          |
-| 8 – 7    | SWDIO       | SWCLK       |
+XHDUpdater source code: [https://github.com/Team-Resurgent/XHDUpdater](https://github.com/Team-Resurgent/XHDUpdater)
 
-Note it is recommended you power from the xbox motherboard when programming and not use the 3V3 described below.
+## To do
 
-Full pinout for reference...
-
-| Pin Pair | Signal      | Signal      |
-|----------|-------------|-------------|
-| 2 – 1    | 3V3         | NRST        |
-| 4 – 3    | OSC OUT     | TX          |
-| 6 – 5    | GND         | RX          |
-| 8 – 7    | SWDIO       | SWCLK       |
-
-
-To Do:
 - Enhance functionality (on-going)
 - Check all video modes render correctly (on-going)
-- Add ability for stm to be programmed from xbox (in progress)
 
-
-EqUiNoX
+— EqUiNoX
 

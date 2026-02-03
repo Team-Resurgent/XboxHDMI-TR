@@ -65,10 +65,8 @@ bool can_launch_application(void)
         return false;
     }
 
-    /* Verify application CRC32 footer (bundled by combine_firmware.py) */
-    uint32_t expected_crc = *(volatile uint32_t *)APP_CRC_FOOTER_ADDRESS;
-    uint32_t computed_crc = crc32_calc(APP_START_ADDRESS, APP_SIZE_BYTES - 4);
-    if (computed_crc != expected_crc) {
+    uint16_t flash_flag = *(volatile uint16_t *)APP_INVALID_FLAG_ADDRESS;
+    if (flash_flag == APP_INVALID_FLAG) {
         return false;
     }
 

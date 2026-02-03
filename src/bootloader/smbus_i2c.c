@@ -332,6 +332,18 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c)
                     flash_write_page(dataByte, ram_buffer, RAM_BUFFER_SIZE);
                     break;
                 }
+                case I2C_HDMI_COMMAND_WRITE_APP_FLASH_MODE:
+                {
+                    if (dataByte == 0)
+                    {
+                        flash_remove_flag();
+                    }
+                    else
+                    {
+                        flash_set_flag();
+                    }
+                    break;
+                }
             }
         }
     }

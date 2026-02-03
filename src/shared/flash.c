@@ -51,3 +51,17 @@ uint32_t flash_copy_page(uint16_t page, uint8_t* data, uint16_t data_size)
     uint32_t flash_addr = FLASH_START_ADDRESS + (page * FLASH_PAGE_SIZE);
     return crc32_copy(flash_addr, data, data_size);
 }
+
+void flash_remove_flag()
+{
+    flash_erase_page(0x3f);
+}
+
+void flash_set_flag()
+{
+    flash_remove_flag();
+    HAL_FLASH_Unlock();
+    HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, APP_INVALID_FLAG_ADDRESS, APP_INVALID_FLAG);
+    HAL_FLASH_Lock();
+}
+

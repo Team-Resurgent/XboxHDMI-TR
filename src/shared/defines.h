@@ -15,12 +15,12 @@
 #define BOOTLOADER_FLAG_ADDRESS     ((volatile uint32_t*)(RAM_START_ADDRESS + 0xf0))
 
 // Bootloader and application addresses (20KB bootloader)
-#define BOOTLOADER_SIZE         0x5000  // 20KB
-#define APP_START_ADDRESS       (FLASH_START_ADDRESS + BOOTLOADER_SIZE)
-#define APP_SIZE_BYTES          (FLASH_TOTAL_SIZE - BOOTLOADER_SIZE)  // 44KB
-#define APP_TOTAL_SIZE          (FLASH_START_ADDRESS + FLASH_TOTAL_SIZE - BOOTLOADER_SIZE)
-/* CRC32 of app image (APP_START to APP_START + APP_SIZE_BYTES - 4) stored in last 4 bytes of app region */
-#define APP_CRC_FOOTER_ADDRESS  (APP_START_ADDRESS + APP_SIZE_BYTES - 4)
+#define BOOTLOADER_SIZE           0x5000  // 20KB
+#define APP_START_ADDRESS         (FLASH_START_ADDRESS + BOOTLOADER_SIZE)
+#define APP_SIZE_BYTES            (FLASH_TOTAL_SIZE - BOOTLOADER_SIZE)  // 44KB
+#define APP_TOTAL_SIZE            (FLASH_START_ADDRESS + FLASH_TOTAL_SIZE - BOOTLOADER_SIZE)
+#define APP_INVALID_FLAG          0x5A5A
+#define APP_INVALID_FLAG_ADDRESS  (APP_START_ADDRESS + APP_SIZE_BYTES - 2)
 
 // ============================================================================
 // I2C
@@ -55,6 +55,8 @@
 #define I2C_HDMI_COMMAND_WRITE_RAM_BANK 135 // Write ram buffer bank (sets index to 0)
 #define I2C_HDMI_COMMAND_WRITE_RAM_INDEX 136 // Write ram buffer index
 #define I2C_HDMI_COMMAND_WRITE_RAM_APPLY 137 // Applies ram buffer to page with value alseo erases + updates crc (validates page for current mode)
+
+#define I2C_HDMI_COMMAND_WRITE_APP_FLASH_MODE 138 // 0 to mark flash ended, 1 to mark flashing began
 
 #define I2C_HDMI_VERSION1 0
 #define I2C_HDMI_VERSION2 1

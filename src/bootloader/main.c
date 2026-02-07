@@ -12,7 +12,6 @@
 #include "smbus_i2c.h"
 
 extern void SystemClock_Config(void);
-volatile uint8_t bootloader_running = 0;
 
 adv7511 encoder;
 
@@ -27,8 +26,6 @@ adv7511 encoder;
 
 int main(void)
 {
-    bootloader_running = 1;
-
     HAL_Init();
     SystemClock_Config();
     init_gpio();
@@ -50,18 +47,13 @@ int main(void)
 bool can_launch_application(void)
 {
     volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
-    uint32_t stack_pointer = app_vector_table[0];
     uint32_t app_entry = app_vector_table[1];
-
-    if (stack_pointer < RAM_START_ADDRESS || stack_pointer > (RAM_START_ADDRESS + RAM_TOTAL_SIZE)) {
-        return false;
-    }
 
     if (app_entry < FLASH_START_ADDRESS || app_entry > (FLASH_START_ADDRESS + FLASH_TOTAL_SIZE)) {
         return false;
     }
 
-    if (stack_pointer == 0xFFFFFFFF && app_entry == 0xFFFFFFFF) {
+    if (app_entry == 0xFFFFFFFF) {
         return false;
     }
 
@@ -78,24 +70,13 @@ void jump_to_application(void)
     debug_log("Launching Application...\r\n");
 
     volatile uint32_t *app_vector_table = (volatile uint32_t *)APP_START_ADDRESS;
-    uint32_t stack_pointer = app_vector_table[0];
     uint32_t app_entry = app_vector_table[1];
 
     __disable_irq();
 
-    HAL_RCC_DeInit();
-    HAL_DeInit();
-
-    SysTick->CTRL = 0;
-    SysTick->LOAD = 0;
-    SysTick->VAL = 0;
-
-    bootloader_running = 0;
-
-    asm volatile (
-        "mov sp,%0 ; blx %1"
-        :: "r" (stack_pointer), "r" (app_entry)
-    );
+    void (*app_reset_handler)(void) = (void (*)(void))app_entry;
+    __set_MSP(*(volatile uint32_t*)BOOTLOADER_SIZE);
+    app_reset_handler();
 
     while (1);
 }

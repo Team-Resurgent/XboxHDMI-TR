@@ -10,6 +10,7 @@
 #include "../shared/xbox_video_standalone.h"
 #include "../shared/error_handler.h"
 #include "../shared/gpio.h"
+#include "../shared/defines.h"
 #include "smbus_i2c.h"
 #include "xbox_video_bios.h"
 
@@ -17,14 +18,31 @@ adv7511 encoder;
 
 extern void SystemClock_Config(void);
 
+#define VECTOR_TABLE_SIZE 48  // Covers 0xC0 bytes (16 + IRQs)
+#define APP_VECTOR_TABLE  ((uint32_t*)APP_START_ADDRESS)
+#define RAM_VECTOR_TABLE  ((uint32_t*)RAM_START_ADDRESS)
+
+void relocate_vector_table_to_ram(void)
+{
+	for (uint32_t i = 0; i < VECTOR_TABLE_SIZE; i++) {
+		RAM_VECTOR_TABLE[i] = APP_VECTOR_TABLE[i];
+	}
+	__HAL_SYSCFG_REMAPMEMORY_SRAM();
+}
+
 int main(void)
 {
     // Allow user to force any of the 3 encoders, only required for vic mode
-//#ifdef BUILD_XCALIBUR
+#ifdef BUILD_XCALIBUR
     xbox_encoder xb_encoder = ENCODER_XCALIBUR;
-
+#elif BUILD_FOCUS
+    xbox_encoder xb_encoder = ENCODER_FOCUS;
+#else
+    xbox_encoder xb_encoder = ENCODER_CONEXANT;
+#endif
 
     __enable_irq();
+    relocate_vector_table_to_ram();
 
     HAL_Init();
     SystemClock_Config();
